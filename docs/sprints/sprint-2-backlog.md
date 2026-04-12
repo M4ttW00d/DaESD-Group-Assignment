@@ -1,15 +1,16 @@
 # Sprint 2 Backlog
-**Duration:** Weeks 7-9 of Term 2  
-**Status:** In Progress  
+**Duration:** Weeks 7-10 of Term 2  
+**Status:** Completed  
 **Goals:** Expand on basic functionalities developed in Sprint 1, integrate all developed features together, complete basic order processing, and address high priority test cases.
 
 ### Sprint 2 Highlevel Objectives
 1. Assign development tasks in the Product Backlog (Kanban) based on the high priority (and remaining critical) test cases.
 2. Expand on developed Producer functionalities (surplus discounts, seasonal availability, settlements..)
-3. Expand on developed Customer functionalities (order placement for multi-vendor and single-vendor orders, order history, reordering from history..)
+3. Expand on developed Customer functionalities (order placement for multi-vendor and single-vendor orders, order history..)
 4. Integrate developed components with eachother to show a clear process flow of:
     - producer creates account → logs in → adds a product listing
-    - customer creates account → logs in → views that product's listing → adds it to their basket → views order summary and clicks checkout → payment is processed through external mock → success message with recepit is returned and order is placed.
+    - customer creates account → logs in → views that product's listing → adds it to their basket → views order summary and clicks checkout
+    - payment is processed through external mock → success message with recepit is returned and order is placed.
 5. Add a user profile page with the options to view and update user account details.
 
 ## Sprint 2 Tasks Breakdown
@@ -23,78 +24,77 @@
     - delete user account.
 
 #### Assigned to: Amine Ziani
-- [] finish integration between customer checkout button and external payment processing
+- [x] finish integration between customer checkout button and external payment processing
     - add fields for delivery address, delivery type, and payment receipt review before proceeding with payment
 
 #### Assigned To: Dina Metwalli
-- [] Complete single-vendor and multi-vendor order placement
-    - [] when a customer checks out with items from different producers in their baskets, the order model should keep clear records of the producer, creating separate orders for each with the correct payment assigned.
-    - [] if multiple items are under a single producer, they should all be placed in the same order.
-    - [] if the basket contains items only from one producer, it should ignore splitting orders and place it all under one order.
+- [x] Complete single-vendor and multi-vendor order placement
+    - [x] when a customer checks out with items from different producers in their baskets, the order model should keep clear records of the producer, creating separate orders for each with the correct payment assigned.
+    - [x] if multiple items are under a single producer, they should all be placed in the same order.
+    - [x] if the basket contains items only from one producer, it should be placed under one order for both customer and producer.
 
 #### Assigned To: Leon Stansfield
-- [] Develop an order view for producers
-    - [] producers should see a highlevel view of incoming orders including a timestamp of when they were placed.
-    - [] producers should be able to click on each order to view its details, including order number, the products, each product's amount, order subtotal, and the customer contact details.
+- [x] Develop an order view for producers
+    - [x] producers should see a highlevel view of incoming orders including a timestamp of when they were placed.
+    - [x] producers should be able to click on each order to view its details, including order number, the products, each product's amount, order subtotal, and the customer contact details.
 
 #### Assigned To: Kaan Karadag
-- [] Notifications integration for order placement
-    - [] implement functionality to notify producers of an incoming order
-    - [] customers should get a notification on every order status update when a producer updates it, including pending, confirmed, ready (for delivery or collection), delivered or completed, and cancelled.
+- [x] Notifications integration for order placement
+    - [x] implement functionality to notify producers of an incoming order
+    - [x] customers should get a notification on every order status update when a producer updates it, including pending, confirmed, ready (for delivery or collection), delivered or completed, and cancelled.
 
 ## Week 2: Any Remaining Functionalities
 
 #### Assigned To: Matt Wood
-- [] Work on payment processing to be integrated with external mock and placed orders
-- [] Add discount management for payments including bulk order discounts and surplus discounts.
+- [x] Work on payment processing to be integrated with external mock and placed orders
+- [x] Add discount management for payments including bulk order discounts and surplus discounts.
     - This should be reflected on the items and inside the customer's basket when items are added to it, showing the discount that will be applied and the order summary's subtotal with the added discount.
+- [x] Add a 404 error page for page not found errors.
 
 #### Assigned to: Amine Ziani
-- [] Add payment fallback handling and processing in case of failure. This includes:
-    - [] transaction retries in case of failed transactions (not enough balance, API failure...)
-    - [] refunds in case of order cancellation by customer.
+- [x] Add payment fallback handling and processing in case of failure. This includes:
+    - [x] transaction retries in case of failed transactions (not enough balance, API failure...)
+    - [x] refunds in case of order cancellation by customer.
 
 #### Assigned To: Dina Metwalli
-- [] Complete/continue single-vendor and multi-vendor order placement
-    - [] in either case of single or multi-vendor orders, each order should be linked back to an overall order receipt for the customer to view what they ordered regardless of its producer.
-    - [] each order should also link back to the items its associated with depending on the producer.
-- [] Start developing order history view for customers
-- [] Add functionality for customers to reorder the same orders from their history
+- [x] Complete/continue single-vendor and multi-vendor order placement
+    - [x] in either case of single or multi-vendor orders, each order should be linked back to an overall order receipt for the customer to view what they ordered regardless of its producer.
+    - [x] each order should also link back to the items its associated with depending on the producer.
+- [x] Start developing order history view for customers
+- [-] Add functionality for customers to reorder the same orders from their history
 
 #### Assigned To: Leon Stansfield
-- [] Continue developing order view for producers
-    - [] integrate a 48-hour lead time to ensure producers have enough time to prepare.
-    - [] add functionality for producers to view the order delivery type
+- [x] Continue developing order view for producers
+    - [x] validate a 48-hour lead time to ensure producers have enough time to prepare.
+    - [-] add functionality for producers to view the order delivery type
 
 #### Assigned To: Kaan Karadag
-- [] Notifications integration for order placement
-    - [] implement functionality to notify producers of an incoming order
-    - [] customers should get a notification on every order status update when a producer updates it, including pending, confirmed, ready (for delivery or collection), and delivered or completed.
+- [x] Notifications integration for order placement
+    - [x] implement functionality to notify producers of an incoming order
+    - [x] customers should get a notification on every order status update when a producer updates it, including pending, confirmed, ready (for delivery or collection), and delivered or completed.
 
 ## Week 3: Integration
 
 #### Assigned To: All Members
-- [] cleanup any failed or incomplete functionalities assigned to you and test on related test cases to ensure success.
-- [] add any remaining error handling cases for user authorization and process failures.
+- [x] cleanup any failed or incomplete functionalities assigned to you and test on related test cases to ensure success.
+- [x] add any remaining error handling cases for user authorization and process failures.
 
 #### Assigned To: Matt Wood
-- [] Integrate developed payment processing with discounts to the basket view and external mock
-    - [] modify the data fields currently sent to the external payment system as needed.
-- [] Add the UI elements needed to show the integrated discounts processing.
+- [x] Integrate developed payment processing with discounts to the basket view and external mock
+    - [x] modify the data fields currently sent to the external payment system as needed.
+- [x] Add the UI elements needed to show the integrated discounts processing.
+- [x] Add user accessibility features such as an accessibile mode for the UI to support colour-blind users.
 
 #### Assigned to: Amine Ziani
-- [] Implement the frontend web templates to show payment status:
+- [x] Implement the frontend web templates to show payment status:
     - this includes success, failure, refund, etc.
 
 #### Assigned To: Leon Stansfield
-- [] implement the needed UI template with the correct styling to order the orders by date of placement.
-- [] Add functionality for producers to modify the order status (initially set to pending, then they can update to confirmed, ready for collection, or delivered).
+- [x] implement the needed UI template with the correct styling to sort orders by date of placement.
+- [x] Add functionality for producers to modify the order status (initially set to pending, then they can update to confirmed, ready for collection, or delivered).
 
 #### Assigned To: Kaan Karadag
-- [] Dispatch notifications when an order status is updated by a producer user.
-
-#### Assigned To: Dina Metwalli
-- [] Integrate discounts and payment receipts to the customer's order history as needed, as well as the overall order status.
+- [x] Dispatch notifications when an order status is updated by a producer user.
 
 ## Sprint 2 Deliverables
 
