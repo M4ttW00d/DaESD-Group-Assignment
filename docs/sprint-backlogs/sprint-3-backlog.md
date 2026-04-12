@@ -3,8 +3,6 @@
 **Status:** In Progress  
 **Goals:** Finish all remaining low-priority test cases and add extra production qualities to the system that further address non-functional requirements.
 
-- reinforce 48 hour lead time in UI as well
-
 ### Sprint 3 Highlevel Objectives
 1. Assign development tasks in the Product Backlog (Kanban) based on the low priority (and any other remaining) test cases.
 2. Complete reordering from customer order history, full notifications system, an external notifications API, and any remaining producer or UI elements.
@@ -37,6 +35,7 @@
     - Clicking Order Again will prompt the user to confirm if they'd like to order these same items again, and proceed to the basket page with the items populated for the customer to modify as needed.
 - [] Add special checkout process for community group representative users (by including a special instructions section for producers to view).
     - [] Test bulk orders by community group users still function as expected and system allows bulk ordering.
+- [] reinforce 48 hour lead time in UI on checkout.
 
 #### Assigned To: Leon Stansfield
 - [] Add functionality for producers to upload farm stories/recipes/educational content with the appropriate type tags.
