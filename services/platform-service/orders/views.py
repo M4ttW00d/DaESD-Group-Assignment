@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -11,6 +11,8 @@ from .serializers import OrderSerializer, CustomerOrderSerializer
 from decimal import Decimal
 from django.db import transaction
 from collections import defaultdict
+from django.utils import timezone
+import datetime
 
 import requests
 import os
@@ -62,11 +64,18 @@ class OrderCreateView(APIView):
         notified_producers = []
         for producer, producer_basket_items in items_by_producer.items():
             producer_id = str(producer.id)
+            delivery_date=delivery_dates.get(producer_id)
+            
+            try:
+                delivery_date = self._validate_delivery_date(delivery_dates.get(producer_id))
+            except ValueError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
             order = Order.objects.create(
                 customer_order=customer_order,
                 customer=request.user,
                 producer=producer,
-                delivery_date=delivery_dates.get(producer_id),
+                delivery_date=delivery_date,
                 collection_type=collection_types.get(producer_id)
             )
             notified_producers.append(producer.id)
@@ -164,6 +173,15 @@ class OrderCreateView(APIView):
         # Return the created order
         serializer = CustomerOrderSerializer(customer_order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    def _validate_delivery_date(self, value):
+        if value:
+            parsed_date = datetime.date.fromisoformat(value)
+            min_date = timezone.now().date() + datetime.timedelta(days=2)
+            if parsed_date < min_date:
+                raise ValueError("There was an error placing your order: the delivery date must be at least 48 hours from today.")
+            return parsed_date
+        return value
 
 class CustomerOrderDetailView(generics.RetrieveAPIView):
     """

@@ -1,9 +1,7 @@
 from rest_framework import serializers
 from .models import Order, OrderItem, OrderStatusLog, CustomerOrder
 from products.models import Product
-from django.utils import timezone
 from decimal import Decimal
-import datetime
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
@@ -65,13 +63,6 @@ class OrderSerializer(serializers.ModelSerializer):
             items = obj.items.filter(product__producer=request.user)
             return sum(item.price_at_sale * item.quantity for item in items)
         return None
-
-    def validate_delivery_date(self, value):
-        if value:
-            min_date = timezone.now().date() + datetime.timedelta(days=2)
-            if value < min_date:
-                raise serializers.ValidationError("Delivery date must be at least 48 hours from now.")
-        return value
 
 class CustomerOrderSerializer(serializers.ModelSerializer):
     orders = OrderSerializer(many=True, read_only=True)
