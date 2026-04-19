@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderStatusLog, CustomerOrder
+from .models import Order, OrderItem, OrderStatusLog, CustomerOrder, RecurringOrder, RecurringOrderItem
 from products.models import Product
 from decimal import Decimal
 
@@ -64,6 +64,19 @@ class OrderSerializer(serializers.ModelSerializer):
             return sum(item.price_at_sale * item.quantity for item in items)
         return None
 
+class RecurringOrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.ReadOnlyField(source='product.name')
+    current_price = serializers.DecimalField(
+        source='product.current_price',
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+
+    class Meta:
+        model = RecurringOrderItem
+        fields = ('id', 'product', 'product_name', 'quantity', 'current_price')
+
 class CustomerOrderSerializer(serializers.ModelSerializer):
     orders = OrderSerializer(many=True, read_only=True)
     overall_status = serializers.CharField(read_only=True)
@@ -74,4 +87,17 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'customer', 'total_amount', 'commission_total', 'overall_status',
             'total_items', 'orders', 'created_at', 'updated_at'
+        )
+
+class RecurringOrderSerializer(serializers.ModelSerializer):
+    items = RecurringOrderItemSerializer(many=True, read_only=True)
+    order_day = serializers.CharField(source='get_order_day_display', read_only=True)
+    delivery_day = serializers.CharField(source='get_delivery_day_display', read_only=True)
+    source_customer_order = CustomerOrderSerializer(read_only=True)
+
+    class Meta:
+        model = RecurringOrder
+        fields = (
+            'id', 'status', 'order_day', 'delivery_day', 'created_at',
+            'next_order_date', 'source_customer_order', 'items'
         )

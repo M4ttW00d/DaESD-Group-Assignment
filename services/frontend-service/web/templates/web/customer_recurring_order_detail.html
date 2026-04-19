@@ -1,0 +1,320 @@
+{% extends "web/base.html" %}
+
+{% block title %}Recurring Order Details - BRFN{% endblock %}
+
+{% block extra_styles %}
+
+/* -- BUTTONS --*/
+.btn-secondary {
+    background: transparent;
+    color: var(--green);
+    border: 1.5px solid var(--green);
+    padding: 0.7rem 1.5rem;
+    border-radius: var(--radius);
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-secondary:hover {
+    background: var(--green);
+    color: #fff;
+}
+
+.action-buttons{
+    margin-top: 2.5rem;
+    margin-bottom: 5rem;
+}
+
+/* -- ORDER HEADER & SUMMARY -- */
+.order-header{
+    margin: 2rem 0;
+}
+
+.order-header h1{
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.order-detail-header h3{
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* -- ORDER DETAILS BY PRODUCER -- */
+
+.detail-card {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+}
+
+.detail-card h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+}
+
+.detail-row {
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: baseline;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: var(--text-muted);
+    width: 150px;
+    flex-shrink: 0;
+}
+
+.producer-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-top: 1rem;
+}
+
+.producer-order-card {
+    background: var(--cream-dark);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.producer-order-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.producer-order-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.producer-order-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.producer-order-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+}
+
+.producer-order-subtotal {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.producer-order-items {
+    display: flex;
+    flex-direction: column;
+}
+
+.order-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.order-item-row:last-child { border-bottom: none; }
+.order-item-name { font-size: 14px; color: var(--text); }
+
+.order-item-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.order-item-qty { font-size: 13px; color: var(--text-muted); }
+.order-item-price { font-size: 13px; color: var(--text-muted); }
+
+.order-item-subtotal {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 60px;
+    text-align: right;
+}
+
+.form-select {
+    width: 100%;
+    padding: 0.65rem 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--bg);
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    cursor: pointer;
+}
+.form-select:focus { border-color: var(--green); background-color: #fff; }
+
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    
+    {% if error %}
+    <div class="error-banner" style="margin-top: 2rem;">⚠ {{ error }}</div>
+    {% endif %}
+    {% if success %}
+    <div class="success-banner" style="margin-top: 2rem;">{{ success }}</div>
+    {% endif %}
+
+    {% if rec_order %}
+
+    <!-- Order Header -->
+    <div class="order-header">
+        <h1>Recurring Order #{{ rec_order.id }}</h1>
+        <p style="color: var(--text-muted);">
+            • Set to recur ever since {{ rec_order.created_at|slice:":10" }}
+        </p>
+    </div>
+    
+    <!-- Overall Order Summary -->
+    <div class="detail-card">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h3>Recurring Order Details</h3>
+            <span class="status-badge status-{{ rec_order.status|default:'unknown'|lower }}">
+                {{ rec_order.status }}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Total Items:</span>
+            <span>{{ rec_order.source_customer_order.total_items }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Total Price:</span>
+            <span>£{{ rec_order.source_customer_order.total_amount|default:"0.00"|floatformat:2 }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Original Order:</span>
+            <a href="/orders/customer/{{ rec_order.source_customer_order.id }}/">
+                #{{ rec_order.source_customer_order.id }}
+            </a>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Next Order Date:</span>
+            <span>{{ rec_order.next_order_date }}</span>
+        </div>
+    </div>
+
+    <div class="detail-card">
+        <!-- Status -->
+        <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <form method="POST" action="/orders/recurring/{{ rec_order.id }}/update/" style="display:inline; width:100%;">
+                {% csrf_token %}
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="ACTIVE" {% if rec_order.status == "ACTIVE" %}selected{% endif %}>Active</option>
+                    <option value="PAUSED" {% if rec_order.status == "PAUSED" %}selected{% endif %}>Paused</option>
+                    <option value="CANCELLED" {% if rec_order.status == "CANCELLED" %}selected{% endif %}>Cancelled</option>
+                </select>
+            </form>
+        </div>
+
+        <!-- Reorder Day -->
+        <div class="detail-row">
+            <span class="detail-label">Reorder Every:</span>
+            <form method="POST" action="/orders/recurring/{{ rec_order.id }}/update/" style="display:inline; width:100%;">
+                {% csrf_token %}
+                <select name="order_day" class="form-select" onchange="this.form.submit()">
+                    <option value="0" {% if rec_order.order_day == "Monday" %}selected{% endif %}>Monday</option>
+                    <option value="1" {% if rec_order.order_day == "Tuesday" %}selected{% endif %}>Tuesday</option>
+                    <option value="2" {% if rec_order.order_day == "Wednesday" %}selected{% endif %}>Wednesday</option>
+                    <option value="3" {% if rec_order.order_day == "Thursday" %}selected{% endif %}>Thursday</option>
+                    <option value="4" {% if rec_order.order_day == "Friday" %}selected{% endif %}>Friday</option>
+                    <option value="5" {% if rec_order.order_day == "Saturday" %}selected{% endif %}>Saturday</option>
+                    <option value="6" {% if rec_order.order_day == "Sunday" %}selected{% endif %}>Sunday</option>
+                </select>
+            </form>
+        </div>
+
+        <!-- Delivery Day -->
+        <div class="detail-row">
+            <span class="detail-label">Deliver Every:</span>
+            <form method="POST" action="/orders/recurring/{{ rec_order.id }}/update/" style="display:inline; width:100%;">
+                {% csrf_token %}
+                <select name="delivery_day" class="form-select" onchange="this.form.submit()">
+                    <option value="0" {% if rec_order.delivery_day == "Monday" %}selected{% endif %}>Monday</option>
+                    <option value="1" {% if rec_order.delivery_day == "Tuesday" %}selected{% endif %}>Tuesday</option>
+                    <option value="2" {% if rec_order.delivery_day == "Wednesday" %}selected{% endif %}>Wednesday</option>
+                    <option value="3" {% if rec_order.delivery_day == "Thursday" %}selected{% endif %}>Thursday</option>
+                    <option value="4" {% if rec_order.delivery_day == "Friday" %}selected{% endif %}>Friday</option>
+                    <option value="5" {% if rec_order.delivery_day == "Saturday" %}selected{% endif %}>Saturday</option>
+                    <option value="6" {% if rec_order.delivery_day == "Sunday" %}selected{% endif %}>Sunday</option>
+                </select>
+            </form>
+        </div>
+        <p>Note: 48-hour lead time must be applied. Choosing an invalid delivery day will reset to last valid choice.</p>
+    </div>
+
+    <!-- Producer Orders -->
+    <div class="order-detail-header">
+        <h3>Order Details by Producer</h3>
+    </div>
+    <div class="producer-orders-list">
+        {% for producer_order in rec_order.source_customer_order.orders %}
+        <div class="producer-order-card">
+            <div class="producer-order-header">
+                <div class="producer-order-left">
+                    <p class="producer-order-name">{{ producer_order.producer_name }}</p>
+                    <div class="producer-order-meta">
+                        <span class="producer-order-subtotal">Subtotal: £{{ producer_order.total_amount|floatformat:2 }}</span>
+                        <span class="producer-order-subtotal">Delivery date: {{ producer_order.delivery_date }}</span>
+                        <span class="producer-order-subtotal">Collection type: {{ producer_order.collection_type }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="producer-order-items">
+                {% for item in producer_order.items %}
+                <div class="order-item-row">
+                    <span class="order-item-name">{{ item.product_name }}</span>
+                    <div class="order-item-right">
+                        <span class="order-item-qty">x{{ item.quantity }}</span>
+                        <span class="order-item-price">£{{ item.price_at_sale|floatformat:2 }} each</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Actions -->
+    <div class="action-buttons">
+        <a href="/orders/" class="btn-secondary" style="text-decoration: none;">← Return</a>
+    </div>
+
+    {% endif %}
+</div>
+
+{% endblock %}

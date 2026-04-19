@@ -181,6 +181,25 @@ def _finalize_pending_order(request, *, payment_id, session_id, order_reference)
 
     if place_resp.status_code == 201:
         customer_order_id = place_resp.json().get('id')
+
+        # Set up recurring order if requested
+        pending_checkout = request.session.get('pending_checkout', {})
+        if pending_checkout.get('make_recurring'):
+            try:
+                requests.post(
+                    f"{PLATFORM_API_URL}/api/orders/recurring/",
+                    headers=get_auth_headers(request),
+                    json={
+                        'customer_order_id': customer_order_id,
+                        'order_day': pending_checkout.get('order_day'),
+                        'delivery_day': pending_checkout.get('delivery_day'),
+                        'collection_types': pending_checkout.get('collection_types', {}),
+                    },
+                    timeout=10
+                )
+            except Exception:
+                pass
+        
         request.session['finalized_payment_id'] = str(payment_id)
         request.session['finalized_order_id'] = customer_order_id
         request.session.pop('pending_checkout', None)
@@ -1356,6 +1375,11 @@ def create_order(request):
         elif key.startswith('collection_type_'):
             producer_id = key.replace('collection_type_', '')
             collection_types[producer_id] = value
+        
+        # Get recurring order details
+        make_recurring = request.POST.get('make_recurring') == 'on'
+        order_day = request.POST.get('order_day')
+        delivery_day = request.POST.get('delivery_day')
 
     try:
         basket_resp = requests.get(f"{PLATFORM_API_URL}/api/basket/", headers=get_auth_headers(request), timeout=10)
@@ -1384,6 +1408,9 @@ def create_order(request):
         'delivery_dates': delivery_dates,
         'collection_types': collection_types,
         'order_reference': pending_order_reference,
+        'make_recurring': make_recurring,
+        'order_day': order_day,
+        'delivery_day': delivery_day,
     }
     request.session.pop('finalized_payment_id', None)
     request.session.pop('finalized_order_id', None)
@@ -1410,12 +1437,60 @@ def create_order(request):
     return redirect(f'/basket/checkout/?error={quote(f"Payment could not start. {gateway_error}")}')
 
 
+def reorder(request, order_id):
+    if not request.session.get('token'):
+        return render(request, 'web/login.html', {'error': 'Please log in.'})
+
+    if request.method != 'POST':
+        return redirect('/orders/')
+
+    try:
+        resp = requests.post(
+            f"{PLATFORM_API_URL}/api/orders/{order_id}/reorder/",
+            headers=get_auth_headers(request),
+            timeout=10
+        )
+    except requests.exceptions.ConnectionError:
+        error = "Cannot reach the platform API."
+        return redirect(f'/orders/?error={quote(error)}')
+    except Exception as e:
+        error = f"Unexpected error: {str(e)}"
+        return redirect(f'/orders/?error={quote(error)}')
+
+    if resp.status_code == 200:
+        data = resp.json()
+        added = data.get('added', [])
+        unavailable = data.get('unavailable', [])
+
+        price_changes = [item for item in added if item.get('price_changed')]
+
+        messages_parts = []
+        if added:
+            messages_parts.append(f"{len(added)} item(s) added to your basket.")
+        if price_changes:
+            names = ', '.join(i['product_name'] for i in price_changes)
+            messages_parts.append(f"Note: prices have changed for {names}.")
+        if unavailable:
+            names = ', '.join(i['product_name'] for i in unavailable)
+            messages_parts.append(f"Unavailable and skipped: {names}.")
+
+        if not added:
+            error = "None of the items from this order are currently available."
+            return redirect(f'/orders/?error={quote(error)}')
+
+        success = ' '.join(messages_parts)
+        return redirect(f'/basket/?success={quote(success)}')
+
+    error = _extract_error_from_response(resp, "Could not reorder.")
+    return redirect(f'/orders/?error={quote(error)}')
+
 def customer_order_history_view(request):
     if not request.session.get('token'):
         return render(request, 'web/login.html', {'error': "Please log in to place an order."})
 
     orders = None
     success = None
+    recurring_orders = None
     error = request.GET.get('error')
     payment_status = request.GET.get('payment')
     order_id = request.GET.get('order_id')
@@ -1448,13 +1523,13 @@ def customer_order_history_view(request):
     total_food_miles = 0
 
     try:
-        resp = requests.get(
+        resp_orders = requests.get(
             f"{PLATFORM_API_URL}/api/orders/customer-orders/",
             headers=get_auth_headers(request),
             timeout=5
         )
-        if resp.status_code == 200:
-            orders = resp.json()
+        if resp_orders.status_code == 200:
+            orders = resp_orders.json()
             # Calculate food miles for DELIVERED delivery orders only
             try:
                 user_resp = requests.get(
@@ -1490,11 +1565,26 @@ def customer_order_history_view(request):
             except Exception:
                 pass
 
-        elif resp.status_code == 401:
+        elif resp_orders.status_code == 401:
             request.session.flush()
             return redirect('/login/')
         else:
-            error = f"Could not load orders (status {resp.status_code})."
+            error = f"Could not load orders (status {resp_orders.status_code})."
+
+        resp_recurring_orders = requests.get(
+            f"{PLATFORM_API_URL}/api/orders/recurring/list",
+            headers=get_auth_headers(request),
+            timeout=5
+        )
+
+        if resp_recurring_orders.status_code == 200:
+            recurring_orders = resp_recurring_orders.json()
+        elif resp_recurring_orders.status_code == 401:
+            request.session.flush()
+            return redirect('/login/')
+        else:
+            error = f"Could not load recurring orders (status {resp_recurring_orders.status_code})."
+    
     except requests.exceptions.ConnectionError:
         error = "Cannot reach the platform API."
     except requests.exceptions.Timeout:
@@ -1503,10 +1593,186 @@ def customer_order_history_view(request):
         error = f"Unexpected error: {str(e)}"
 
     return render(request, 'web/customer_order_history.html', {
-        'orders': orders, 'success': success, 'error': error,
+        'orders': orders,
         'total_food_miles': round(total_food_miles, 1),
+        'recurring_orders': recurring_orders,
+        'success': success,
+        'error': error,
     })
 
+def recurring_order_detail_view(request, rec_order_id):
+    """
+    Displays the chosen recurring order's details to the customer.
+    """
+    if not request.session.get('token'):
+        error = "Please log in to view your recurring orders."
+        return render(request, 'web/login.html', {
+            'error': error,
+        })
+
+    rec_order = None
+    error = None
+
+    try:
+        resp = requests.get(
+            f"{PLATFORM_API_URL}/api/orders/recurring/{rec_order_id}/",
+            headers=get_auth_headers(request),
+            timeout=5
+        )
+        
+        if resp.status_code == 200:
+            rec_order = resp.json()
+        elif resp.status_code == 404:
+            error = "Reccuring order record not found."
+        elif resp.status_code == 401:
+            error = "Your session has expired. Please log in again."
+            request.session.flush()
+            return redirect('/login/')
+        else:
+            error = f"Could not load recurring order (status {resp.status_code})."
+
+    except requests.exceptions.ConnectionError:
+        error = "Cannot reach the platform API."
+    except requests.exceptions.Timeout:
+        error = "Request timed out."
+    except Exception as e:
+        error = f"Unexpected error: {str(e)}"
+
+    return render(request, 'web/customer_recurring_order_detail.html', {
+        'rec_order': rec_order,
+        'error': error,
+    })
+
+def recurring_order_update(request, rec_order_id):
+    if not request.session.get('token'):
+        return render(request, 'web/login.html', {'error': 'Please log in.'})
+
+    if request.method != 'POST':
+        return redirect(f'/orders/recurring/{rec_order_id}/')
+
+    payload = {}
+    if 'status' in request.POST:
+        payload['status'] = request.POST.get('status')
+    if 'order_day' in request.POST:
+        payload['order_day'] = request.POST.get('order_day')
+    if 'delivery_day' in request.POST:
+        payload['delivery_day'] = request.POST.get('delivery_day')
+
+    try:
+        resp = requests.patch(
+            f"{PLATFORM_API_URL}/api/orders/recurring/{rec_order_id}/update/",
+            headers=get_auth_headers(request),
+            json=payload,
+            timeout=5
+        )
+        if resp.status_code == 200:
+            return redirect(f'/orders/recurring/{rec_order_id}/')
+        elif resp.status_code == 404:
+            error = "Recurring order not found."
+        elif resp.status_code == 401:
+            request.session.flush()
+            return redirect('/login/')
+        else:
+            error = f"Could not update recurring order (status {resp.status_code})."
+    except requests.exceptions.ConnectionError:
+        error = "Cannot reach the platform API."
+    except requests.exceptions.Timeout:
+        error = "Request timed out."
+    except Exception as e:
+        error = f"Unexpected error: {str(e)}"
+
+    return redirect(f'/orders/recurring/{rec_order_id}/?error={quote(error)}')
+
+def write_review_view(request, product_id):
+    """
+    Allow a customer to write a review for a purchased product from a delivered order.
+    """
+    token = request.session.get('token')
+    if not token:
+        # Redirect or show error, but we return a general response
+        return redirect('login')
+
+    headers = {'Authorization': f'Bearer {token}'}
+    platform_api_url = PLATFORM_API_URL
+
+    success = request.GET.get('success')
+    error = request.GET.get('error')
+
+    # GET: Form display with product info
+    if request.method == 'GET':
+        # Fetch the product details to display on the review page
+        prod_resp = requests.get(f"{platform_api_url}/api/products/{product_id}/", headers=headers)
+        
+        if prod_resp.status_code == 200:
+            product = prod_resp.json()
+        else:
+            return redirect(f"/orders/?error=Could not fetch product details.")
+
+        return render(request, 'web/write_review.html', {
+            'product': product,
+            'media_base_url': platform_api_url,
+            'success': success,
+            'error': error
+        })
+        
+    # POST: Submit review data
+    elif request.method == 'POST':
+        # Collect post data
+        rating = request.POST.get('rating')
+        title = request.POST.get('title', '')
+        comment = request.POST.get('comment', '')
+        is_anonymous = request.POST.get('is_anonymous') == 'true'
+
+        payload = {
+            'product': product_id,
+            'rating': rating,
+            'title': title,
+            'comment': comment,
+            'is_anonymous': is_anonymous
+        }
+
+        # Send POST to Platform Service Review endpoint
+        review_resp = requests.post(f"{platform_api_url}/api/reviews/", json=payload, headers=headers)
+        
+        if review_resp.status_code == 201:
+            # Redirect to the product detail page for the given product
+            return redirect(f"/products/{product_id}/?success=Your review has been submitted successfully!")
+        else:
+            try:
+                err_data = review_resp.json()
+                if isinstance(err_data, list) and len(err_data) > 0:
+                    err_msg = err_data[0]
+                elif 'non_field_errors' in err_data:
+                    err_msg = err_data['non_field_errors'][0]
+                else:
+                    # Generic dictionary error handling
+                    if isinstance(err_data, dict):
+                        err_msg = next(iter(err_data.values()))[0] if err_data else "Unknown error"
+                    else:
+                        err_msg = str(err_data)
+            except:
+                err_msg = "Could not submit your review. Please try again."
+
+            return redirect(f"/reviews/create/{product_id}/?error=Review error: {err_msg}")
+
+def delete_review_view(request, review_id):
+    """
+    Allow a customer to delete their previously submitted review.
+    """
+    headers = get_auth_headers(request)
+    if not headers:
+        return redirect('login')
+    
+    product_id = request.POST.get('product_id')
+    
+    resp = requests.delete(f"{PLATFORM_API_URL}/api/reviews/{review_id}/", headers=headers)
+    
+    if resp.status_code == 204:
+        msg = "Your review has been deleted."
+        return redirect(f"/products/{product_id}/?success={msg}") if product_id else redirect('customer-orders')
+    else:
+        err_msg = "Could not delete review."
+        return redirect(f"/products/{product_id}/?error={err_msg}") if product_id else redirect('customer-orders')
 
 def customer_order_detail_view(request, order_id):
     """

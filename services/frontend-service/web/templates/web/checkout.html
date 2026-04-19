@@ -502,6 +502,29 @@ min-height: 100px;
     font-weight: 600;
 }
 
+.recurring-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.recurring-section {
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    padding-top: 1.25rem;
+}
+
+.recurring-section h4 {
+    margin-bottom: 1rem;
+}
+
+.recurring-section p {
+    opacity: 0.85;
+    margin-top: 0.75rem;
+}
+
 {% endblock %}
 
 {% block content %}
@@ -635,6 +658,48 @@ min-height: 100px;
                         <span>—</span>
                     </div>
 
+                
+                    <div class="recurring-section">
+                        <label class="recurring-title">
+                            <input type="checkbox" id="make-recurring" name="make_recurring">
+                            Make this a recurring order
+                        </label>
+
+                        <div id="recurring-options" style="display:none; margin-top: 1.25rem;">
+                            <h4>Recurring Order Setup</h4>
+
+                            <div class="form-group">
+                                <label for="order_day">Place order every:</label>
+                                <select name="order_day" id="order_day" class="form-select">
+                                    <option value="0">Monday</option>
+                                    <option value="1">Tuesday</option>
+                                    <option value="2">Wednesday</option>
+                                    <option value="3">Thursday</option>
+                                    <option value="4">Friday</option>
+                                    <option value="5">Saturday</option>
+                                    <option value="6">Sunday</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="delivery_day">Deliver every:</label>
+                                <select name="delivery_day" id="delivery_day" class="form-select">
+                                    <option value="0">Monday</option>
+                                    <option value="1">Tuesday</option>
+                                    <option value="2" selected>Wednesday</option>
+                                    <option value="3">Thursday</option>
+                                    <option value="4">Friday</option>
+                                    <option value="5">Saturday</option>
+                                    <option value="6">Sunday</option>
+                                </select>
+                            </div>
+
+                            <p>
+                                Your order will be placed every <strong id="summary-order-day">Monday</strong>
+                                and delivered the following <strong id="summary-delivery-day">Wednesday</strong>.
+                            </p>
+                        </div>
+                    </div>
                     <button type="submit" class="btn-checkout">
                         Proceed to payment →
                     </button>
@@ -645,49 +710,69 @@ min-height: 100px;
 </div>
 
 <script>
-var foodMilesData = {{ food_miles_by_producer|default:"{}"|safe }};
+    var foodMilesData = {{ food_miles_by_producer|default:"{}"|safe }};
 
-function updateFoodMiles(producerId, collectionType) {
-    var el = document.getElementById('food-miles-' + producerId);
-    var valueEl = el ? el.querySelector('.checkout-food-miles-value') : null;
-    if (!el || !valueEl) return;
-    if (!collectionType) {
-        el.style.display = 'none';
-    } else if (collectionType === 'Collection') {
-        el.style.display = 'inline-flex';
-        valueEl.textContent = '0 food miles (you\'re collecting)';
-    } else {
-        var miles = foodMilesData[producerId];
-        if (miles !== undefined && miles !== null) {
-            el.style.display = 'inline-flex';
-            valueEl.textContent = miles + ' food miles';
-        } else {
+    function updateFoodMiles(producerId, collectionType) {
+        var el = document.getElementById('food-miles-' + producerId);
+        var valueEl = el ? el.querySelector('.checkout-food-miles-value') : null;
+        if (!el || !valueEl) return;
+        if (!collectionType) {
             el.style.display = 'none';
-        }
-    }
-    updateTotalMiles();
-}
-
-function updateTotalMiles() {
-    var selects = document.querySelectorAll('select[name^="collection_type_"]');
-    var total = 0;
-    var hasAny = false;
-    selects.forEach(function(sel) {
-        var producerId = sel.name.replace('collection_type_', '');
-        var val = sel.value;
-        if (!val) return;
-        hasAny = true;
-        if (val !== 'Collection') {
+        } else if (collectionType === 'Collection') {
+            el.style.display = 'inline-flex';
+            valueEl.textContent = '0 food miles (you\'re collecting)';
+        } else {
             var miles = foodMilesData[producerId];
-            if (miles) total += miles;
+            if (miles !== undefined && miles !== null) {
+                el.style.display = 'inline-flex';
+                valueEl.textContent = miles + ' food miles';
+            } else {
+                el.style.display = 'none';
+            }
         }
-    });
-    var totalEl = document.getElementById('checkout-total-miles');
-    if (totalEl) {
-        totalEl.style.display = hasAny ? 'flex' : 'none';
-        totalEl.querySelector('span:last-child').textContent = total.toFixed(1) + ' miles';
+        updateTotalMiles();
     }
-}
+
+    function updateTotalMiles() {
+        var selects = document.querySelectorAll('select[name^="collection_type_"]');
+        var total = 0;
+        var hasAny = false;
+        selects.forEach(function(sel) {
+            var producerId = sel.name.replace('collection_type_', '');
+            var val = sel.value;
+            if (!val) return;
+            hasAny = true;
+            if (val !== 'Collection') {
+                var miles = foodMilesData[producerId];
+                if (miles) total += miles;
+            }
+        });
+        var totalEl = document.getElementById('checkout-total-miles');
+        if (totalEl) {
+            totalEl.style.display = hasAny ? 'flex' : 'none';
+            totalEl.querySelector('span:last-child').textContent = total.toFixed(1) + ' miles';
+        }
+    }
+
+    // Check if order is set to be recurring or not and change recurrance summary dynamically.
+    const checkbox = document.getElementById('make-recurring');
+    const options = document.getElementById('recurring-options');
+    const orderDaySelect = document.getElementById('order_day');
+    const deliveryDaySelect = document.getElementById('delivery_day');
+    const summaryOrderDay = document.getElementById('summary-order-day');
+    const summaryDeliveryDay = document.getElementById('summary-delivery-day');
+
+    checkbox.addEventListener('change', () => {
+        options.style.display = checkbox.checked ? 'block' : 'none';
+    });
+
+    orderDaySelect.addEventListener('change', () => {
+        summaryOrderDay.textContent = orderDaySelect.options[orderDaySelect.selectedIndex].text;
+    });
+
+    deliveryDaySelect.addEventListener('change', () => {
+        summaryDeliveryDay.textContent = deliveryDaySelect.options[deliveryDaySelect.selectedIndex].text;
+    });
 </script>
 
 {% endblock %}

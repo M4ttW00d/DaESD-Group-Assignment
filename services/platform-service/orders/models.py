@@ -137,3 +137,46 @@ class SurplusDeal(models.Model):
 
     class Meta:
         db_table = 'surplus_deals'
+
+class RecurringOrder(models.Model):
+    class DayOfWeek(models.IntegerChoices):
+        MONDAY = 0, 'Monday'
+        TUESDAY = 1, 'Tuesday'
+        WEDNESDAY = 2, 'Wednesday'
+        THURSDAY = 3, 'Thursday'
+        FRIDAY = 4, 'Friday'
+        SATURDAY = 5, 'Saturday'
+        SUNDAY = 6, 'Sunday'
+
+    class Status(models.TextChoices):
+        ACTIVE = 'ACTIVE', 'Active'
+        PAUSED = 'PAUSED', 'Paused'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='recurring_orders')
+    
+    # Snapshot of what to reorder each week
+    source_customer_order = models.ForeignKey(CustomerOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='recurring_schedules')
+    order_day = models.IntegerField(choices=DayOfWeek.choices, help_text="Day of week the order is placed (e.g. Monday=0)")
+    delivery_day = models.IntegerField(choices=DayOfWeek.choices, help_text="Day of week the delivery is expected (e.g. Wednesday=2)")
+    collection_types = models.JSONField(default=dict, help_text="producer_id -> collection_type mapping")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    next_order_date = models.DateField(help_text="Date the next order will be automatically placed")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'recurring_orders'
+
+    def __str__(self):
+        return f"Recurring Order #{self.id} - Customer: {self.customer.username}"
+
+
+class RecurringOrderItem(models.Model):
+    recurring_order = models.ForeignKey(RecurringOrder, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey('products.Product',on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+
+    class Meta:
+        db_table = 'recurring_order_items'

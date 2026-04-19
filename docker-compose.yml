@@ -68,7 +68,11 @@ services:
   platform-api:
     build: ./services/platform-service
     container_name: brfn_platform_api
-    command: python manage.py runserver 0.0.0.0:8002
+    command: >
+      sh -c "printenv | grep -E '^(DB_|SECRET_KEY|JWT_SECRET_KEY|NOTIFICATIONS_API_URL|PAYMENT_GATEWAY_URL)' > /etc/environment &&
+            echo '0 6 * * * cd /code && /usr/local/bin/python3 manage.py process_recurring_orders >> /var/log/cron.log 2>&1' | crontab - &&
+            cron &&
+            python manage.py runserver 0.0.0.0:8002"
     ports:
       - "8002:8002"
     environment:

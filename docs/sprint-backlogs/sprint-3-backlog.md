@@ -19,29 +19,29 @@
 - [] Show surplus discounts and calculations during checkout as well (only shown in basket currently).
 - [x] Add a site favicon.
 - [x] Complete remaining integration for 5% commission discount on orders.
-- [] Add the food miles calculation using any external integrations (if needed).
-    - [] Show the food miles display on any product details page, calculated in miles based on customer and producer post codes.
-    - [] Add functionality to calculate total food miles calculation for an order with products from different vendors.
+- [x] Add the food miles calculation using any external integrations (if needed).
+    - [x] Show the food miles display on any product details page, calculated in miles based on customer and producer post codes.
+    - [x] Add functionality to calculate total food miles calculation for an order with products from different vendors.
 
 #### Assigned to: Amine Ziani
-- [] Develop the needed business logic for processing weekly payment settlements
+- [x] Develop the needed business logic for processing weekly payment settlements
     - This includes audit trails for the settlements/transactions.
     - A "Payments" or "Financial Reports" section in the UI should be shown for Producer users only to include this information.
     - The settlements should have a clear breakdown of the values of the total order, the 5% network commission, the producer's cut, both in a highlevel week summary and a break down by each order for that week.
 
 #### Assigned To: Dina Metwalli
-- [] Add customer ability to reorder from their order history
+- [x] Add customer ability to reorder from their order history
     - Customer should be able to click on a certain order and view the items they ordered, with links back to the items under the producer's listing.
     - Clicking Order Again will prompt the user to confirm if they'd like to order these same items again, and proceed to the basket page with the items populated for the customer to modify as needed.
-- [] Add special checkout process for community group representative users (by including a special instructions section for producers to view).
-    - [] Test bulk orders by community group users still function as expected and system allows bulk ordering.
-- [] reinforce 48 hour lead time in UI on checkout.
+- [x] Add recurring orders setup for restaurant owner customers.
+    - Includes choosing the products by browsing, setting the quantity for each item, confirming weekly recurrence and delivery days, and reviewing the order summary and checkout.
+- [x] reinforce 48 hour lead time in backend on checkout.
 
 #### Assigned To: Leon Stansfield
-- [] Add functionality for producers to upload farm stories/recipes/educational content with the appropriate type tags.
-    - [] Add a link to the related producer's products mentioned in the recipe.
-    - [] Add needed UI pages for publishing the farm story/recipe as a producer.
-    - [] Add the needed UI page to read the farm story as a customer.
+- [x] Add functionality for producers to upload farm stories/recipes/educational content with the appropriate type tags.
+    - [x] Add a link to the related producer's products mentioned in the recipe.
+    - [x] Add needed UI pages for publishing the farm story/recipe as a producer.
+    - [x] Add the needed UI page to read the farm story as a customer.
 
 #### Assigned To: Kaan Karadag
 - [] Complete the UI page for the notifications service API to show notifications for both producers and customer users on order updates/comments.
@@ -59,12 +59,12 @@
 - [] Assist team members with other remaining functionalities, including the external emailing/notifications API.
 
 #### Assigned To: Dina Metwalli
-- [] Add a warning to show customers on replacing orders from history in case any of the order's items are unavailable as of current time.
+- [x] Add a warning to show customers on reordering orders from history in case any of the order's items are unavailable as of current time.
     - This should clearly specify which item(s) is currently unavailable.
     - If they customer would still like to proceed, it will take the same process of going to the basket page.
     - Proceeding to checkout should function the same.
-- [] Add recurring orders setup for restaurant owner customers.
-    - Includes choosing the products by browsing, setting the quantity for each item, confirming weekly recurrence and delivery days, and reviewing the order summary and checkout.
+- [] Add special checkout process for community group representative users (by including a special instructions section for producers to view).
+    - [] Test bulk orders by community group users still function as expected and system allows bulk ordering.
 
 #### Assigned To: Leon Stansfield
 - [] Fix and test image loading functionality for adding products.
@@ -86,9 +86,9 @@
     - **Check against functional and non-functional requirements list.**
 
 #### Assigned To: Matt Wood
-- [] Integrate the added discounts with the external payment service flow.
-- [] Add date filtering for commission monitoring in the admin dashboard.
-    - [] Add the financial reports section in the dashboard with report generation and download functionalities.
+- [x] Integrate the added discounts with the external payment service flow.
+- [x] Add date filtering for commission monitoring in the admin dashboard.
+    - [] **Add the financial reports section in the dashboard with report generation and download functionalities.**
 
 #### Assigned to: Amine Ziani
 - [] Test and fix any edge cases found around order cancellation, refund processing, etc. both in the backend and UI.
