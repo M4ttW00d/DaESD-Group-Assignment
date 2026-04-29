@@ -22,7 +22,7 @@ def calculate_delivery_date(order_date, delivery_day):
     Given the date the order is placed and the desired delivery day of week,
     returns the next valid delivery date enforcing a 48-hour lead time.
     """
-    days_ahead = (delivery_day - order_date.weekday()) % 7
+    days_ahead = (int(delivery_day) - int(order_date.weekday())) % 7
     if days_ahead < 2:  # if less than 48 hours away, pushes to next week
         days_ahead += 7
     return order_date + datetime.timedelta(days=days_ahead)
@@ -403,7 +403,7 @@ class RecurringOrderCreateView(APIView):
             return Response({'error': 'order_day and delivery_day are required.'}, status=400)
         
         # Validate 48-hour lead time
-        days_between = (delivery_day - order_day) % 7
+        days_between = (int(delivery_day) - int(order_day)) % 7
         if days_between == 0:
             days_between = 7
         if days_between < 2:
