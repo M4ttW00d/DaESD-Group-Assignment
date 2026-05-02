@@ -767,10 +767,30 @@ min-height: 100px;
     });
 
     orderDaySelect.addEventListener('change', () => {
+        let orderDay = parseInt(orderDaySelect.value);
+        let deliveryDay = parseInt(deliveryDaySelect.value);
+
+        let diff = (deliveryDay - orderDay + 7) % 7;
+
+        // Block next-day delivery for 48-hour lead time
+        if (diff === 1) {
+            deliveryDaySelect.value = (orderDay + 2) % 7;
+        }
+
         summaryOrderDay.textContent = orderDaySelect.options[orderDaySelect.selectedIndex].text;
     });
 
     deliveryDaySelect.addEventListener('change', () => {
+        let orderDay = parseInt(orderDaySelect.value);
+        let deliveryDay = parseInt(deliveryDaySelect.value);
+
+        let diff = (deliveryDay - orderDay + 7) % 7;
+
+        // Block next-day delivery for 48-hour lead time
+        if (diff === 1) {
+            deliveryDaySelect.value = (orderDay + 2) % 7;
+        }
+
         summaryDeliveryDay.textContent = deliveryDaySelect.options[deliveryDaySelect.selectedIndex].text;
     });
 </script>
