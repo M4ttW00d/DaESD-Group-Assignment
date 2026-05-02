@@ -74,6 +74,7 @@
     border-radius: var(--radius);
     border: 1px dashed var(--border);
     color: var(--text-muted);
+    margin-bottom: 2rem;
 }
 .empty-state h3 {
     font-family: 'Cormorant Garamond', serif;
@@ -251,7 +252,7 @@
     
     {% else %}
 
-    <div class="empty-state">
+    <div id="tab-recurring" class="tab-panel empty-state">
         <h3>No Recurring Orders.</h3>
         <p>You haven't created any recurring orders yet.</p>
     </div>
