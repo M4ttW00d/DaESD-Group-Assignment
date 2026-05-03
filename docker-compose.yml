@@ -68,11 +68,7 @@ services:
   platform-api:
     build: ./services/platform-service
     container_name: brfn_platform_api
-    command: >
-      sh -c "printenv | grep -E '^(DB_|SECRET_KEY|JWT_SECRET_KEY|NOTIFICATIONS_API_URL|PAYMENT_GATEWAY_URL)' > /etc/environment &&
-            echo '0 6 * * * cd /code && /usr/local/bin/python3 manage.py process_recurring_orders >> /var/log/cron.log 2>&1' | crontab - &&
-            cron &&
-            python manage.py runserver 0.0.0.0:8002"
+    command: python manage.py runserver 0.0.0.0:8002
     ports:
       - "8002:8002"
     environment:
@@ -151,6 +147,31 @@ services:
       - DEBUG=${DEBUG}
       - SECRET_KEY=${SECRET_KEY}
       - PAYMENT_GATEWAY_API_KEY=${PAYMENT_GATEWAY_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - brfn-network
+
+  platform-cron:
+    build: ./services/platform-service
+    container_name: brfn_platform_cron
+    command: >
+      sh -c "printenv | grep -E '^(DB_|SECRET_KEY|JWT_SECRET_KEY|NOTIFICATIONS_API_URL|PAYMENT_GATEWAY_URL)' > /etc/environment &&
+            echo '* * * * * cd /code && /usr/local/bin/python3 manage.py process_recurring_orders >> /var/log/cron.log 2>&1' | crontab - &&
+            cron -f"
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DEBUG=${DEBUG}
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
+      - PAYMENT_GATEWAY_URL=${PAYMENT_GATEWAY_URL}
+    volumes:
+      - ./services/platform-service:/code
     depends_on:
       db:
         condition: service_healthy
