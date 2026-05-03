@@ -5,3 +5,4 @@ python-decouple>=3.8
 PyJWT>=2.8.0
 requests>=2.31.0
 django-cors-headers>=4.3.0
+sib-api-v3-sdk>=7.6.0
