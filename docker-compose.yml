@@ -58,6 +58,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - PLATFORM_API_URL=${PLATFORM_API_URL}
+      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
     depends_on:
       db:
         condition: service_healthy
