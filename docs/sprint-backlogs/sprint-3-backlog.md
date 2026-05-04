@@ -16,7 +16,7 @@
 
 #### Assigned To: Matt Wood
 - [x] Add a custom UI popup for confirmation on dangerous/delete actions for a professional look.
-- [] Show surplus discounts and calculations during checkout as well (only shown in basket currently).
+- [x] Show surplus discounts and calculations during checkout as well (only shown in basket currently).
 - [x] Add a site favicon.
 - [x] Complete remaining integration for 5% commission discount on orders.
 - [x] Add the food miles calculation using any external integrations (if needed).
@@ -44,8 +44,8 @@
     - [x] Add the needed UI page to read the farm story as a customer.
 
 #### Assigned To: Kaan Karadag
-- [] Complete the UI page for the notifications service API to show notifications for both producers and customer users on order updates/comments.
-- [] Add notifications for LOW STOCK alerts to go to the resepctive item producers.
+- [x] Complete the UI page for the notifications service API to show notifications for both producers and customer users on order updates/comments.
+- [x] Add notifications for LOW STOCK alerts to go to the resepctive item producers.
 
 ## Week 2: Full Integration
 
@@ -56,7 +56,6 @@
 
 #### Assigned to: Amine Ziani
 - [] Ensure bulk orders payment still works with current mock payment gateway integration and payments are split by producer.
-- [] Assist team members with other remaining functionalities, including the external emailing/notifications API.
 
 #### Assigned To: Dina Metwalli
 - [x] Add a warning to show customers on reordering orders from history in case any of the order's items are unavailable as of current time.
@@ -65,17 +64,17 @@
     - Proceeding to checkout should function the same.
 - [] Add special checkout process for community group representative users (by including a special instructions section for producers to view).
     - [] Test bulk orders by community group users still function as expected and system allows bulk ordering.
+    - [] Add field in UI for producer order to see special instructions added by community group representative during order placement.
 
 #### Assigned To: Leon Stansfield
-- [] Fix and test image loading functionality for adding products.
+- [x] Fix and test image loading functionality for adding products.
     - This should be tested across ALL pages where product images appear.
-- [] Complete customer reviews by adding a review submission form.
-- [] Add seasonal availability filtering in the UI to work with the existing model.
+- [x] Complete customer reviews by adding a review submission form.
 
 #### Assigned To: Kaan Karadag
-- [] Complete an integration with an external email API service to send the same notifications outside of the BRFN website as well.
+- [x] Complete an integration with an external email API service to send the same notifications outside of the BRFN website as well.
     - These emails should go to both producers and customers on order updates as needed.
-- [] Add notifications to go out to customers when a producer has a limited time offer or discount deal.
+- [x] Add notifications to go out to customers when a producer has a limited time offer or discount deal.
 
 ## Week 3: Final Cleanup
 
@@ -88,22 +87,22 @@
 #### Assigned To: Matt Wood
 - [x] Integrate the added discounts with the external payment service flow.
 - [x] Add date filtering for commission monitoring in the admin dashboard.
-    - [] **Add the financial reports section in the dashboard with report generation and download functionalities.**
+    - [x] **Add the financial reports section in the dashboard with report generation and download functionalities.**
 
 #### Assigned to: Amine Ziani
-- [] Test and fix any edge cases found around order cancellation, refund processing, etc. both in the backend and UI.
+- [x] Test and fix any edge cases found around order cancellation, refund processing, etc. both in the backend and UI.
 
 #### Assigned To: Leon Stansfield
-- [] Add order type to show for producers in each order's details (regular customer order, recurring order, bulk order by community group representative)
-- [] Add field in UI for producer order to see special instructions added by community group representative during order placement.
+- [x] Complete product image loading to show in producer pages.
+- [x] Add personal producers page with linking through products.
 
 #### Assigned To: Kaan Karadag
-- [] Add extra notifications functionalities (e.g. the ability for users to choose email notification preferences, or notifications on farm stories additon, or an emergency recall procedure in case any contaminated products have been delivered to customers).
+- [x] Add extra notifications functionalities (e.g. the ability for users to choose email notification preferences, or notifications on farm stories additon, or an emergency recall procedure in case any contaminated products have been delivered to customers).
 
 #### Assigned To: Dina Metwalli
 - [] Add soft updates for product availability once a customer places products in their basket and test using two users.
 - [] Update actual product availability/stock once customer places order.
-- [] Add functionality to temporarily modify established recurring order templates and test that it only updates the next order placed, not the template itself.
+- [x] Add functionality to modify established recurring order templates and test that it only updates the next order placed, not the source order.
 
 
 ## Sprint 3 Deliverables
