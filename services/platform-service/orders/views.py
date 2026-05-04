@@ -30,6 +30,18 @@ def calculate_delivery_date(order_date, delivery_day):
         days_ahead += 7
     return order_date + datetime.timedelta(days=days_ahead)
 
+def is_in_season(product):
+    season_start = product.seasonal_start_month
+    season_end = product.seasonal_end_month
+
+    # Return true for products without seasonal availablility
+    if season_start is None or season_end is None:
+        return True
+
+    current_month = timezone.now().date().month
+
+    return season_start <= current_month <= season_end
+
 class OrderValidationError(Exception):
     pass
 
@@ -356,7 +368,7 @@ class ReorderView(APIView):
             for item in order.items.all():
                 product = item.product
 
-                if not product.is_available or product.stock_quantity < 1:
+                if not product.is_available or product.stock_quantity < 1 or not is_in_season(product):
                     unavailable.append({
                         'product_id': product.id,
                         'product_name': product.name,

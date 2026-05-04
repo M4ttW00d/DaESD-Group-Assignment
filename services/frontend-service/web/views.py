@@ -1119,11 +1119,15 @@ def delete_product_view(request, product_id):
 
 def basket_view(request):
     basket = None
+    success = None
     error = None
     items_by_producer = None
 
     if not request.session.get('token'):
         return render(request, 'web/login.html', {'error': "Please log in to view your basket."})
+    
+    success = request.GET.get('success')
+    error = request.GET.get('error')
 
     try:
         resp = requests.get(f"{PLATFORM_API_URL}/api/basket/", headers=get_auth_headers(request), timeout=5)
@@ -1148,6 +1152,7 @@ def basket_view(request):
         'basket': basket,
         'items_by_producer': items_by_producer,
         'error': error,
+        'success': success,
         'media_base_url': MEDIA_BASE_URL,
     })
 
