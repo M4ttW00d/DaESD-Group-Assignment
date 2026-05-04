@@ -407,7 +407,7 @@
         document.querySelectorAll('.form-input').forEach(el => el.style.borderColor = '');
     }
 
-    orderDaySelect.addEventListener('click', () => {
+    orderDaySelect.addEventListener('change', () => {
         clearFieldErrors();
         const orderDay = parseInt(orderDaySelect.value);
         const deliveryDay = parseInt(deliveryDaySelect.value);
@@ -423,7 +423,7 @@
         order_day_form.submit();
     });
 
-    deliveryDaySelect.addEventListener('click', () => {
+    deliveryDaySelect.addEventListener('change', () => {
         clearFieldErrors();
         const orderDay = parseInt(orderDaySelect.value);
         const deliveryDay = parseInt(deliveryDaySelect.value);

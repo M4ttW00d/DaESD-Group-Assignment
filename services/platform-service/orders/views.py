@@ -421,7 +421,7 @@ class RecurringOrderCreateView(APIView):
         today = timezone.now().date()
         days_ahead = (int(order_day) - today.weekday()) % 7
         if days_ahead == 0:
-            days_ahead = 0  # Schedule for next week if today matches
+            days_ahead = 7  # Schedule for next week if today matches
         next_order_date = today + datetime.timedelta(days=days_ahead)
 
         recurring_order = RecurringOrder.objects.create(
