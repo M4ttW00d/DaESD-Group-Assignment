@@ -762,35 +762,70 @@ min-height: 100px;
     const summaryOrderDay = document.getElementById('summary-order-day');
     const summaryDeliveryDay = document.getElementById('summary-delivery-day');
 
+    // Track original values to revert on invalid selection
+    let lastValidOrderDay = orderDaySelect.value;
+    let lastValidDeliveryDay = deliveryDaySelect.value;
+
     checkbox.addEventListener('change', () => {
         options.style.display = checkbox.checked ? 'block' : 'none';
     });
 
-    orderDaySelect.addEventListener('change', () => {
-        let orderDay = parseInt(orderDaySelect.value);
-        let deliveryDay = parseInt(deliveryDaySelect.value);
+    function isValid(orderDay, deliveryDay) {
+        const diff = (deliveryDay - orderDay + 7) % 7;
+        return diff !== 1;
+    }
 
-        let diff = (deliveryDay - orderDay + 7) % 7;
+    function showFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        field.style.borderColor = '#a20000';
+        let hint = field.nextElementSibling;
+        if (!hint || !hint.classList.contains('field-error')) {
+            hint = document.createElement('p');
+            hint.className = 'hint field-error';
+            hint.style.color = '#a20000';
+            hint.style.fontSize = '14px';
+            hint.style.margin = '-0.25rem';
+            field.parentNode.insertBefore(hint, field.nextSibling);
+        }
+        hint.textContent = message;
+    }
 
-        // Block next-day delivery for 48-hour lead time
-        if (diff === 1) {
-            deliveryDaySelect.value = (orderDay + 2) % 7;
+    function clearFieldErrors() {
+        document.querySelectorAll('.field-error').forEach(el => el.remove());
+        document.querySelectorAll('.form-input').forEach(el => el.style.borderColor = '');
+    }
+
+    orderDaySelect.addEventListener('click', () => {
+        clearFieldErrors();
+        const orderDay = parseInt(orderDaySelect.value);
+        const deliveryDay = parseInt(deliveryDaySelect.value);
+
+        if (!isValid(orderDay, deliveryDay)) {
+            // Revert to last valid value without triggering change event
+            orderDaySelect.value = lastValidOrderDay;
+            showFieldError('order_day', 'This order day conflicts with your delivery day. A 48-hour lead time must be maintained.');
+            return;
         }
 
+        lastValidOrderDay = orderDaySelect.value;
+        
         summaryOrderDay.textContent = orderDaySelect.options[orderDaySelect.selectedIndex].text;
     });
 
-    deliveryDaySelect.addEventListener('change', () => {
-        let orderDay = parseInt(orderDaySelect.value);
-        let deliveryDay = parseInt(deliveryDaySelect.value);
+    deliveryDaySelect.addEventListener('click', () => {
+        clearFieldErrors();
+        const orderDay = parseInt(orderDaySelect.value);
+        const deliveryDay = parseInt(deliveryDaySelect.value);
 
-        let diff = (deliveryDay - orderDay + 7) % 7;
-
-        // Block next-day delivery for 48-hour lead time
-        if (diff === 1) {
-            deliveryDaySelect.value = (orderDay + 2) % 7;
+        if (!isValid(orderDay, deliveryDay)) {
+            // Revert to last valid value without triggering change event
+            deliveryDaySelect.value = lastValidDeliveryDay;
+            showFieldError('delivery_day', 'Cannot deliver the next day - not enough preparation time.');
+            return;
         }
 
+        lastValidDeliveryDay = deliveryDaySelect.value;
+        
         summaryDeliveryDay.textContent = deliveryDaySelect.options[deliveryDaySelect.selectedIndex].text;
     });
 </script>
