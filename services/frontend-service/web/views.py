@@ -148,6 +148,124 @@ def _extract_error_from_response(response, default_message):
     return default_message
 
 
+def _send_payment_notifications(request, order):
+    """
+    Fires payment confirmation notifications after a successful Stripe payment.
+    Called once per order (guarded by session flag in the caller).
+    Sends:
+      - PAYMENT_RECEIVED  → customer (payment success confirmation)
+      - ORDER_SUMMARY     → customer (itemised order breakdown)
+      - PAYMENT_RECEIVED  → each producer (their sub-order confirmed)
+    """
+    sub_orders     = order.get('orders', [])
+    total_amount   = order.get('total_amount', '0.00')
+    customer_order_id = order.get('id', '')
+    customer_email = sub_orders[0].get('customer_email', '') if sub_orders else ''
+    customer_id    = request.session.get('user_id')
+
+    if not customer_id:
+        return
+
+    # Build itemised summary for the customer order confirmation email
+    summary_lines = []
+    for sub in sub_orders:
+        producer_name = sub.get('producer_name') or 'Producer'
+        summary_lines.append(f"\n{producer_name}:")
+        for item in sub.get('items', []):
+            name  = item.get('product_name', 'Item')
+            qty   = item.get('quantity', 1)
+            price = item.get('price_at_sale', '0.00')
+            summary_lines.append(f"  • {name} x{qty} — £{price}")
+        collection = sub.get('collection_type', '')
+        delivery   = sub.get('delivery_date', '')
+        if collection:
+            summary_lines.append(f"  Collection: {collection}")
+        if delivery:
+            summary_lines.append(f"  Delivery date: {delivery}")
+
+    order_summary_message = (
+        f"Order #{customer_order_id} — Total: £{total_amount}"
+        + "".join(summary_lines)
+    )
+
+    secret = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')
+    headers = {'X-Service-Secret': secret}
+
+    # Email 1 — payment success confirmation to customer
+    try:
+        requests.post(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/",
+            json={
+                'user':    customer_id,
+                'email':   customer_email,
+                'type':    'PAYMENT_RECEIVED',
+                'title':   f'Payment Confirmed — Order #{customer_order_id}',
+                'message': f'Your payment of £{total_amount} was successful. Your order #{customer_order_id} has been placed.',
+            },
+            headers=headers,
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+    # Email 2 — order summary to customer
+    try:
+        requests.post(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/",
+            json={
+                'user':    customer_id,
+                'email':   customer_email,
+                'type':    'ORDER_SUMMARY',
+                'title':   f'Order Summary — #{customer_order_id}',
+                'message': order_summary_message,
+            },
+            headers=headers,
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+    # Notify each producer — their sub-order items only
+    for sub in sub_orders:
+        producer_id    = sub.get('producer_id')
+        producer_email = sub.get('producer_email', '')
+        producer_name  = sub.get('producer_name') or 'Producer'
+        sub_total      = sub.get('total_amount', '0.00')
+        sub_id         = sub.get('id', '')
+
+        if not producer_id:
+            continue
+
+        producer_lines = [f"Order #{sub_id} — Your subtotal: £{sub_total}\n"]
+        for item in sub.get('items', []):
+            name  = item.get('product_name', 'Item')
+            qty   = item.get('quantity', 1)
+            price = item.get('price_at_sale', '0.00')
+            producer_lines.append(f"  • {name} x{qty} — £{price}")
+        collection = sub.get('collection_type', '')
+        delivery   = sub.get('delivery_date', '')
+        if collection:
+            producer_lines.append(f"\nCollection type: {collection}")
+        if delivery:
+            producer_lines.append(f"Delivery date: {delivery}")
+
+        try:
+            requests.post(
+                f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                json={
+                    'user':    producer_id,
+                    'email':   producer_email,
+                    'type':    'PAYMENT_RECEIVED',
+                    'title':   f'Payment Received — Order #{sub_id}',
+                    'message': "".join(producer_lines),
+                },
+                headers=headers,
+                timeout=5,
+            )
+        except Exception:
+            pass
+
+
 def _finalize_pending_order(request, *, payment_id, session_id, order_reference):
     pending_checkout = request.session.get('pending_checkout')
     if not isinstance(pending_checkout, dict):
@@ -691,10 +809,118 @@ def profile_view(request):
             except Exception as e:
                 error = f"Unexpected error: {str(e)}"
 
+        elif action == 'update_notification_prefs':
+            user_id = request.session.get('user_id')
+            if user_id:
+                payload = {
+                    'user_id':        user_id,
+                    'email_enabled':  request.POST.get('email_enabled') == 'on',
+                    'in_app_enabled': request.POST.get('in_app_enabled') == 'on',
+                }
+                try:
+                    resp = requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/",
+                        json=payload,
+                        timeout=5
+                    )
+                    if resp.status_code == 200:
+                        success = "Notification preferences saved."
+                    else:
+                        error = "Could not save notification preferences."
+                except Exception as e:
+                    error = f"Unexpected error: {str(e)}"
+
+        elif action == 'update_notification_type_prefs_bulk':
+            user_id = request.session.get('user_id')
+            notification_types = request.POST.getlist('notification_types')
+            if user_id and notification_types:
+                failed = False
+                for ntype in notification_types:
+                    payload = {
+                        'user_id':           user_id,
+                        'notification_type': ntype,
+                        'email_enabled':     request.POST.get(f'email_{ntype}') == 'on',
+                        'in_app_enabled':    request.POST.get(f'in_app_{ntype}') == 'on',
+                    }
+                    try:
+                        resp = requests.post(
+                            f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/types/",
+                            json=payload,
+                            timeout=5
+                        )
+                        if resp.status_code != 200:
+                            failed = True
+                    except Exception:
+                        failed = True
+                success = "Notification preferences saved." if not failed else None
+                if failed:
+                    error = "Some preferences could not be saved."
+
+    # Load notification preferences for the profile page
+    notif_prefs = {'email_enabled': True, 'in_app_enabled': True}
+    notif_type_prefs = {}
+    user_id = request.session.get('user_id')
+    if user_id:
+        try:
+            resp = requests.get(
+                f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/",
+                params={'user_id': user_id},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                notif_prefs = resp.json()
+        except Exception:
+            pass
+        try:
+            resp = requests.get(
+                f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/types/",
+                params={'user_id': user_id},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                for tp in resp.json():
+                    notif_type_prefs[tp['notification_type']] = tp
+        except Exception:
+            pass
+
+    CUSTOMER_NOTIFICATION_TYPES = [
+        ('PAYMENT_RECEIVED', 'Payment Confirmed',  'Email confirmation when your payment is successfully processed'),
+        ('PAYMENT_FAILED',   'Payment Failed',     'Email alert when a payment could not be completed'),
+        ('ORDER_SUMMARY',    'Order Summary',      'Itemised order breakdown email sent after a successful payment'),
+        ('SURPLUS_DEAL',     'Surplus Deals',      'Alerts when a producer marks a product as a surplus deal'),
+        ('ORDER_CONFIRMED',  'Order Confirmed',    'Notifications when your order has been confirmed by the producer'),
+        ('ORDER_READY',      'Order Ready',        'Notifications when your order is ready for collection or delivery'),
+        ('ORDER_DELIVERED',  'Order Delivered',    'Notifications when your order has been marked as delivered'),
+        ('ORDER_CANCELLED',  'Order Cancelled',    'Notifications when an order is cancelled'),
+    ]
+    PRODUCER_NOTIFICATION_TYPES = [
+        ('ORDER_PLACED',      'Order Placed',      'Alerts when a customer places a new order with you'),
+        ('LOW_STOCK',         'Low Stock',         'Alerts when a product\'s stock drops below your set threshold'),
+        ('OUT_OF_STOCK',      'Out of Stock',      'Alerts when a product runs out of stock'),
+        ('SEASONAL_REMINDER', 'Seasonal Reminder', 'Reminders when your seasonal products are coming into season'),
+    ]
+
+    role = user.get('role', 'CUSTOMER') if user else 'CUSTOMER'
+    definitions = PRODUCER_NOTIFICATION_TYPES if role == 'PRODUCER' else CUSTOMER_NOTIFICATION_TYPES
+
+    type_prefs_list = []
+    for ntype, label, desc in definitions:
+        tp = notif_type_prefs.get(ntype)
+        type_prefs_list.append({
+            'type':           ntype,
+            'label':          label,
+            'desc':           desc,
+            'email_enabled':  tp['email_enabled']  if tp else notif_prefs.get('email_enabled', True),
+            'in_app_enabled': tp['in_app_enabled'] if tp else notif_prefs.get('in_app_enabled', True),
+            'has_override':   tp is not None,
+        })
+
     return render(request, 'web/profile.html', {
-        'user': user,
-        'error': error,
-        'success': success,
+        'user':             user,
+        'error':            error,
+        'success':          success,
+        'notif_prefs':      notif_prefs,
+        'type_prefs_list':  type_prefs_list,
     })
 
 
@@ -1863,6 +2089,35 @@ def customer_order_history_view(request):
             success = "Payment successful."
     elif payment_status == 'cancelled':
         error = "Payment was cancelled. Your basket is unchanged."
+        # Send failed payment notification — only once
+        if not request.session.get('payment_failed_notified'):
+            request.session['payment_failed_notified'] = True
+            customer_id = request.session.get('user_id')
+            if customer_id:
+                try:
+                    user_resp = requests.get(
+                        f"{PLATFORM_API_URL}/api/auth/me/",
+                        headers=get_auth_headers(request),
+                        timeout=5
+                    )
+                    customer_email = user_resp.json().get('email', '') if user_resp.status_code == 200 else ''
+                except Exception:
+                    customer_email = ''
+                try:
+                    requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                        json={
+                            'user':    customer_id,
+                            'email':   customer_email,
+                            'type':    'PAYMENT_FAILED',
+                            'title':   'Payment Unsuccessful',
+                            'message': 'Your payment could not be completed. Your basket has not been affected — please try again when you are ready.',
+                        },
+                        headers={'X-Service-Secret': os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')},
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
     elif payment_status == 'error':
         error = "Payment did not complete."
 
@@ -2119,6 +2374,12 @@ def customer_order_detail_view(request, order_id):
         if resp.status_code == 200:
             order = resp.json()
 
+            # Send payment confirmation notifications — only once per payment
+            notif_flag = f'payment_notified_{order_id}'
+            if payment_status == 'success' and not request.session.get(notif_flag):
+                request.session[notif_flag] = True
+                _send_payment_notifications(request, order)
+
             # Food miles stored on each producer order - just sum them up
             if order.get('orders'):
                 total_miles = sum(
@@ -2247,318 +2508,4 @@ def producer_orders_view(request):
             for order in orders:
                 miles = float(order.get('food_miles') or 0)
                 if miles:
-                    total_food_miles += miles
-        elif resp.status_code == 401:
-            request.session.flush()
-            return redirect('/login/')
-        else:
-            error = f"Could not load your orders (status {resp.status_code})."
-    except Exception as e:
-        error = f"Unexpected error: {str(e)}"
-    return render(request, 'web/producer_orders.html', {
-        'orders': orders,
-        'error': error,
-        'total_food_miles': round(total_food_miles, 1),
-    })
-
-
-def producer_order_detail_view(request, order_id):
-    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
-        return redirect('/login/')
-    order = None
-    error = request.GET.get('error')
-    try:
-        resp = requests.get(f"{PLATFORM_API_URL}/api/orders/{order_id}/", headers=get_auth_headers(request), timeout=5)
-        if resp.status_code == 200:
-            order = resp.json()
-        elif resp.status_code == 404:
-            return redirect('/dashboard/orders/')
-        elif resp.status_code == 401:
-            request.session.flush()
-            return redirect('/login/')
-        else:
-            error = f"Failed to load order details (status {resp.status_code})."
-    except Exception as e:
-        error = f"Error communicating with API: {str(e)}"
-    return render(request, 'web/producer_order_detail.html', {'order': order, 'error': error})
-
-
-def producer_update_order_status_view(request, order_id):
-    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
-        return redirect('/login/')
-    if request.method == 'POST':
-        status_val = request.POST.get('status')
-        note = request.POST.get('note', '')
-        try:
-            resp = requests.patch(
-                f"{PLATFORM_API_URL}/api/orders/{order_id}/status/",
-                headers=get_auth_headers(request),
-                json={'status': status_val, 'note': note},
-                timeout=5
-            )
-            if resp.status_code == 401:
-                request.session.flush()
-                return redirect('/login/')
-            elif resp.status_code != 200:
-                try:
-                    error_msg = resp.json().get('error', 'Update failed.')
-                except:
-                    error_msg = "Unknown error occurred."
-                from urllib.parse import quote_plus
-                return redirect(f'/dashboard/orders/{order_id}/?error={quote_plus(error_msg)}')
-        except Exception as e:
-            from urllib.parse import quote_plus
-            return redirect(f'/dashboard/orders/{order_id}/?error={quote_plus(str(e))}')
-    return redirect(f'/dashboard/orders/{order_id}/')
-
-
-def producer_content_dashboard(request):
-    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
-        return redirect('/login/')
-    recipes, stories = [], []
-    error = None
-    username = request.session.get('username')
-    try:
-        resp_r = requests.get(f"{PLATFORM_API_URL}/api/products/recipes/", params={'producer__username': username}, timeout=5)
-        if resp_r.status_code == 200:
-            recipes = resp_r.json()
-        resp_s = requests.get(f"{PLATFORM_API_URL}/api/products/farm-stories/", params={'producer__username': username}, timeout=5)
-        if resp_s.status_code == 200:
-            stories = resp_s.json()
-    except Exception as e:
-        error = f"Could not load content: {str(e)}"
-    return render(request, 'web/content_dashboard.html', {
-        'recipes': recipes, 'stories': stories, 'error': error, 'media_base_url': MEDIA_BASE_URL
-    })
-
-
-def add_recipe_view(request):
-    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
-        return redirect('/login/')
-    error = None
-    products = []
-    try:
-        resp_p = requests.get(f"{PLATFORM_API_URL}/api/products/", params={'producer__username': request.session.get('username')}, timeout=5)
-        if resp_p.status_code == 200:
-            products = resp_p.json()
-    except:
-        pass
-    if request.method == 'POST':
-        form_data = request.POST.dict()
-        form_data.pop('csrfmiddlewaretoken', None)
-        files = {}
-        if 'image' in request.FILES:
-            image_file = request.FILES['image']
-            files['image'] = (image_file.name, image_file.read(), image_file.content_type)
-        selected_products = request.POST.getlist('products')
-        data_tuples = [(k, v) for k, v in form_data.items() if k != 'products']
-        for pid in selected_products:
-            data_tuples.append(('products', pid))
-        try:
-            resp = requests.post(
-                f"{PLATFORM_API_URL}/api/products/recipes/",
-                headers={'Authorization': f"Bearer {request.session.get('token')}"},
-                data=data_tuples,
-                files=files if files else None,
-                timeout=10
-            )
-            if resp.status_code == 201:
-                return redirect('/dashboard/content/')
-            else:
-                error = f"Failed to create recipe: {resp.text}"
-        except Exception as e:
-            error = f"Error: {str(e)}"
-    return render(request, 'web/add_recipe.html', {'products': products, 'error': error})
-
-
-def add_farm_story_view(request):
-    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
-        return redirect('/login/')
-    error = None
-    if request.method == 'POST':
-        form_data = request.POST.dict()
-        form_data.pop('csrfmiddlewaretoken', None)
-        files = {}
-        if 'image' in request.FILES:
-            image_file = request.FILES['image']
-            files['image'] = (image_file.name, image_file.read(), image_file.content_type)
-        try:
-            resp = requests.post(
-                f"{PLATFORM_API_URL}/api/products/farm-stories/",
-                headers={'Authorization': f"Bearer {request.session.get('token')}"},
-                data=form_data,
-                files=files if files else None,
-                timeout=10
-            )
-            if resp.status_code == 201:
-                return redirect('/dashboard/content/')
-            else:
-                error = f"Failed to create story: {resp.text}"
-        except Exception as e:
-            error = f"Error: {str(e)}"
-    return render(request, 'web/add_farm_story.html', {'error': error})
-
-
-def producer_public_profile(request, producer_id):
-    profile_data = {}
-    error = None
-    try:
-        resp = requests.get(f"{PLATFORM_API_URL}/api/auth/public-producers/{producer_id}/profile/", timeout=5)
-        if resp.status_code == 200:
-            profile_data = resp.json()
-        elif resp.status_code == 404:
-            error = "Producer not found."
-        else:
-            error = f"Error fetching producer profile (Status {resp.status_code})."
-    except Exception as e:
-        error = f"Error communicating with API: {str(e)}"
-    return render(request, 'web/producer_public_profile.html', {
-        'producer': profile_data,
-        'products': profile_data.get('products', []),
-        'recipes': profile_data.get('recipes', []),
-        'stories': profile_data.get('farm_stories', []),
-        'error': error,
-        'media_base_url': MEDIA_BASE_URL
-    })
-
-
-def delete_recipe_view(request, recipe_id):
-    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
-        return redirect('/login/')
-    try:
-        requests.delete(
-            f"{PLATFORM_API_URL}/api/products/recipes/{recipe_id}/",
-            headers={'Authorization': f"Bearer {request.session.get('token')}"},
-            timeout=5
-        )
-    except:
-        pass
-    return redirect('/dashboard/content/')
-
-
-def delete_farm_story_view(request, story_id):
-    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
-        return redirect('/login/')
-    try:
-        requests.delete(
-            f"{PLATFORM_API_URL}/api/products/farm-stories/{story_id}/",
-            headers={'Authorization': f"Bearer {request.session.get('token')}"},
-            timeout=5
-        )
-    except:
-        pass
-    return redirect('/dashboard/content/')
-
-
-def notifications_count_view(request):
-    from django.http import JsonResponse
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return JsonResponse({'unread_count': 0})
-    try:
-        resp = requests.get(
-            f"{NOTIFICATIONS_API_URL}/api/notifications/unread-count/",
-            params={'recipient_id': user_id},
-            timeout=5
-        )
-        if resp.status_code == 200:
-            return JsonResponse(resp.json())
-    except Exception:
-        pass
-    return JsonResponse({'unread_count': 0})
-
-
-def notifications_list_view(request):
-    from django.http import JsonResponse
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return JsonResponse([], safe=False)
-    try:
-        resp = requests.get(
-            f"{NOTIFICATIONS_API_URL}/api/notifications/list/",
-            params={'recipient_id': user_id},
-            timeout=5
-        )
-        if resp.status_code == 200:
-            return JsonResponse(resp.json(), safe=False)
-    except Exception:
-        pass
-    return JsonResponse([], safe=False)
-
-
-def notifications_mark_read_view(request, pk):
-    from django.http import JsonResponse
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
-    try:
-        resp = requests.patch(
-            f"{NOTIFICATIONS_API_URL}/api/notifications/{pk}/",
-            json={'recipient_id': user_id},
-            timeout=5
-        )
-        return JsonResponse({'ok': resp.status_code == 200})
-    except Exception:
-        return JsonResponse({'ok': False})
-
-
-def notifications_mark_all_read_view(request):
-    from django.http import JsonResponse
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
-    try:
-        resp = requests.patch(
-            f"{NOTIFICATIONS_API_URL}/api/notifications/read-all/",
-            json={'recipient_id': user_id},
-            timeout=5
-        )
-        return JsonResponse({'ok': resp.status_code == 200})
-    except Exception:
-        return JsonResponse({'ok': False})
-
-
-def favourite_toggle_view(request, producer_id):
-    from django.http import JsonResponse
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-    token = request.session.get('token')
-    if not token:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
-    try:
-        resp = requests.post(
-            f"{PLATFORM_API_URL}/api/auth/favourites/{producer_id}/",
-            headers={'Authorization': f'Bearer {token}'},
-            timeout=5
-        )
-        if resp.status_code in (200, 201):
-            return JsonResponse(resp.json())
-        return JsonResponse({'error': 'Failed'}, status=resp.status_code)
-    except Exception:
-        return JsonResponse({'error': 'Service unavailable'}, status=503)
-
-
-def favourite_list_view(request):
-    from django.http import JsonResponse
-    token = request.session.get('token')
-    if not token:
-        return JsonResponse({'favourited_producer_ids': []})
-    try:
-        resp = requests.get(
-            f"{PLATFORM_API_URL}/api/auth/favourites/",
-            headers={'Authorization': f'Bearer {token}'},
-            timeout=5
-        )
-        if resp.status_code == 200:
-            return JsonResponse(resp.json())
-    except Exception:
-        pass
-    return JsonResponse({'favourited_producer_ids': []})
-
-
-def custom_404(request, exception=None):
-    return render(request, 'web/404.html', status=404)
+                    total_food_miles 

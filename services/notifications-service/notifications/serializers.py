@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Notification
+from .models import Notification, NotificationPreference, NotificationTypePreference
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -17,6 +17,7 @@ class CreateNotificationSerializer(serializers.Serializer):
         default=Notification.NotificationType.GENERAL,
     )
     title   = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+    email   = serializers.EmailField(required=False, allow_blank=True, default='')
 
     def create(self, validated_data):
         return Notification.objects.create(
@@ -30,3 +31,15 @@ class CreateNotificationSerializer(serializers.Serializer):
 class UnreadCountSerializer(serializers.Serializer):
     recipient_id = serializers.IntegerField()
     unread_count = serializers.IntegerField()
+
+
+class NotificationPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = NotificationPreference
+        fields = ('user_id', 'email_enabled', 'in_app_enabled')
+
+
+class NotificationTypePreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = NotificationTypePreference
+        fields = ('user_id', 'notification_type', 'email_enabled', 'in_app_enabled')

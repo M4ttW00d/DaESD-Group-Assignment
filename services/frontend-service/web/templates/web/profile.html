@@ -258,6 +258,61 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                 </form>
             </div>
 
+            <!-- Notification Preferences -->
+            <div class="profile-card">
+                <div class="card-title">Notification Preferences</div>
+                <div class="card-subtitle">Control which notifications you receive and how.</div>
+
+                <!-- Global toggles -->
+                <form method="post" action="/profile/" style="margin-bottom: 1.5rem;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_notification_prefs">
+                    <p class="form-label" style="margin-bottom: 0.75rem;">Global settings</p>
+                    <div style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem;">
+                        <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-size:0.9rem; color:var(--text);">
+                            <input type="checkbox" name="email_enabled" {% if notif_prefs.email_enabled %}checked{% endif %}>
+                            Email notifications
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-size:0.9rem; color:var(--text);">
+                            <input type="checkbox" name="in_app_enabled" {% if notif_prefs.in_app_enabled %}checked{% endif %}>
+                            In-app notifications (bell icon)
+                        </label>
+                    </div>
+                    <button type="submit" class="btn-save">Save global settings</button>
+                </form>
+
+                <hr style="border:none; border-top:1px solid var(--border); margin-bottom:1.5rem;">
+
+                <!-- Per-type toggles -->
+                <p class="form-label" style="margin-bottom:0.3rem;">Per-notification-type settings</p>
+                <p class="card-subtitle" style="margin-bottom:1rem;">These override the global settings for specific alert types.</p>
+
+                <form method="post" action="/profile/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_notification_type_prefs_bulk">
+                    {% for tp in type_prefs_list %}
+                    <input type="hidden" name="notification_types" value="{{ tp.type }}">
+                    <div style="background:var(--bg); border:1.5px solid var(--border); border-radius:8px; padding:0.85rem 1rem; margin-bottom:0.6rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:nowrap;">
+                        <div style="min-width:0;">
+                            <p style="font-family:'Source Sans 3',sans-serif; font-weight:600; font-size:0.9rem; color:var(--text); margin:0 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tp.label }}</p>
+                            <p style="font-size:0.75rem; color:var(--text-muted); margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tp.desc }}</p>
+                        </div>
+                        <div style="display:flex; gap:1.2rem; align-items:center; flex-shrink:0;">
+                            <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); cursor:pointer;">
+                                <input type="checkbox" name="email_{{ tp.type }}" {% if tp.email_enabled %}checked{% endif %}>
+                                Email
+                            </label>
+                            <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); cursor:pointer;">
+                                <input type="checkbox" name="in_app_{{ tp.type }}" {% if tp.in_app_enabled %}checked{% endif %}>
+                                In-app
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn-save" style="margin-top:0.5rem;">Save type settings</button>
+                </form>
+            </div>
+
             <!-- Delete Account -->
             <div class="profile-card danger-card">
                 <div class="card-title" style="color: #a0422a;">Delete Account</div>

@@ -46,6 +46,7 @@ SECRET_KEY = 'django-insecure-%jg26zl(@1=&5fs(ax(ec_43d_$%i8p9b++n4vqmm(v%&27udp
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+
 ALLOWED_HOSTS = os.environ.get(
     'ALLOWED_HOSTS',
     'notifications-api,localhost,127.0.0.1'
@@ -135,30 +136,14 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
+# Static files
+STATIC_URL = '/static/'
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
-STATIC_URL = 'static/'
-
+# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
-    'DEFAULT_PERMISSION_CLASSES': [],
-    'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
-}
-
-CORS_ALLOW_ALL_ORIGINS = True
-
-SERVICE_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'change-this-secret-key-for-jwt-tokens')
-PLATFORM_API_URL = os.environ.get('PLATFORM_API_URL', 'http://platform-api:8002')
-
-BREVO_SECRET_KEY = _secret('BREVO_SECRET_KEY', '')
+SERVICE_SECRET_KEY = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', 'change-this-secret')

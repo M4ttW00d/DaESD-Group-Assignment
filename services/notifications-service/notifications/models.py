@@ -14,6 +14,8 @@ class Notification(models.Model):
         SURPLUS_DEAL       = 'SURPLUS_DEAL',        'Surplus Deal'
         SEASONAL_REMINDER  = 'SEASONAL_REMINDER',   'Seasonal Reminder'
         PAYMENT_RECEIVED   = 'PAYMENT_RECEIVED',    'Payment Received'
+        PAYMENT_FAILED     = 'PAYMENT_FAILED',      'Payment Failed'
+        ORDER_SUMMARY      = 'ORDER_SUMMARY',       'Order Summary'
         SETTLEMENT_READY   = 'SETTLEMENT_READY',    'Settlement Ready'
         GENERAL            = 'GENERAL',             'General'
 
@@ -34,3 +36,30 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{self.notification_type}] → user {self.recipient_id}"
+
+
+class NotificationPreference(models.Model):
+    user_id        = models.IntegerField(unique=True, db_index=True)
+    email_enabled  = models.BooleanField(default=True)
+    in_app_enabled = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'notification_preferences'
+
+    def __str__(self):
+        return f"Prefs for user {self.user_id}"
+
+
+class NotificationTypePreference(models.Model):
+    """Per-notification-type channel overrides. Takes precedence over global NotificationPreference."""
+    user_id           = models.IntegerField(db_index=True)
+    notification_type = models.CharField(max_length=50)
+    email_enabled     = models.BooleanField(default=True)
+    in_app_enabled    = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'notification_type_preferences'
+        unique_together = ('user_id', 'notification_type')
+
+    def __str__(self):
+        return f"TypePref({self.user_id}, {self.notification_type})"

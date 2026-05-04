@@ -47,3 +47,6 @@ Thumbs.db
 
 #Stripe payments key file (it's in teams chat)
 /services/payment-gateway-service/env.secure
+
+#Brevo email API key file (it's in teams chat)
+/services/notifications-service/.env.secure

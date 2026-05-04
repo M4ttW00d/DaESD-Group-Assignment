@@ -41,8 +41,9 @@ class Command(BaseCommand):
                 requests.post(
                     f"{NOTIFICATIONS_API_URL}/api/notifications/",
                     json={
-                        'user': producer.id,
-                        'type': 'SEASONAL_REMINDER',
+                        'user':  producer.id,
+                        'email': producer.email,
+                        'type':  'SEASONAL_REMINDER',
                         'title': f"Season Starting: {product.name}",
                         'message': (
                             f"Your product '{product.name}' comes into season in "

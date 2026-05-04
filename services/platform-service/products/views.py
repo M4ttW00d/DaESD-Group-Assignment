@@ -113,12 +113,19 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
 
             all_customer_ids = prior_customer_ids | favouriter_ids
 
+            from users.models import User as UserModel
+            customer_email_map = {
+                u['id']: u['email']
+                for u in UserModel.objects.filter(id__in=all_customer_ids).values('id', 'email')
+            }
+
             for customer_id in all_customer_ids:
                 try:
                     http_requests.post(
                         f"{NOTIFICATIONS_API_URL}/api/notifications/",
                         json={
                             'user':    customer_id,
+                            'email':   customer_email_map.get(customer_id, ''),
                             'message': (
                                 f"Surplus deal: '{updated_product.name}' is now {discount}% off. "
                                 "Limited time offer — grab it before it's gone!"
@@ -153,6 +160,7 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
                         f"{NOTIFICATIONS_API_URL}/api/notifications/",
                         json={
                             'user':    updated_product.producer.id,
+                            'email':   updated_product.producer.email,
                             'type':    'SEASONAL_REMINDER',
                             'title':   f"Season Starting: {updated_product.name}",
                             'message': (
