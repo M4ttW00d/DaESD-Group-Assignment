@@ -45,6 +45,9 @@ urlpatterns = [
     path('orders/<int:order_id>/reorder/', views.reorder, name='reorder'),
     path('reviews/create/<int:product_id>/', views.write_review_view, name='write_review'),
     path('reviews/<int:review_id>/delete/', views.delete_review_view, name='delete_review'),
+    path('orders/recurring/trigger/', views.trigger_recurring_orders, name='trigger-recurring-orders'),
+    path('orders/recurring/order-date-update/', views.update_recurring_orders_reorder_date, name='update-recurring-orders-reorder-date'),
+    
 
     # Profile, admin and producer
     path('profile/', views.profile_view, name='profile'),
@@ -70,7 +73,6 @@ urlpatterns = [
     path('notifications/', views.notifications_list_view, name='notifications-list'),
     path('notifications/<int:pk>/read/', views.notifications_mark_read_view, name='notifications-mark-read'),
     path('notifications/read-all/', views.notifications_mark_all_read_view, name='notifications-mark-all-read'),
-
     path('producers/<int:producer_id>/favourite/', views.favourite_toggle_view, name='favourite-toggle'),
     path('favourites/', views.favourite_list_view, name='favourite-list'),
 ]

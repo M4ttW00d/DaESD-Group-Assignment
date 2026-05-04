@@ -9,11 +9,14 @@ from .models import Order, OrderItem, CustomerOrder, RecurringOrder, RecurringOr
 from .serializers import OrderSerializer, CustomerOrderSerializer, RecurringOrderSerializer
 
 from decimal import Decimal
-from django.db import transaction
 from collections import defaultdict
-from django.utils import timezone
-import datetime
+from io import StringIO
 
+from django.db import transaction
+from django.utils import timezone
+from django.core.management import call_command
+
+import datetime
 import requests
 import os
 
@@ -508,3 +511,46 @@ class RecurringOrderUpdateView(APIView):
 
         ro.save()
         return Response({'success': True})
+    
+class UpdateRecurringOrdersDate(APIView):
+    """
+    Manually resets all recurring orders next_order_date to today.
+    Once all active orders are reset to reorder today, cron job will
+    automatically place the orders.
+    This can be done from the admin dashboard only.
+
+    - For demonstration purposes only -
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'ADMIN':
+            return Response({'error': 'Admin only.'}, status=403)
+        
+        # Reset next_order_date for all active recurring orders to today
+        RecurringOrder.objects.filter(
+            status=RecurringOrder.Status.ACTIVE
+        ).update(next_order_date=timezone.now().date())
+
+        return Response({'success': True})
+
+
+class TriggerRecurringOrdersView(APIView):
+    """
+    Triggers the cron job command for processing recurring orders.
+    This can be done from the admin dashboard only.
+
+    - For demonstration purposes only -
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != 'ADMIN':
+            return Response({'error': 'Admin only.'}, status=403)
+
+        # Run the management command
+        out = StringIO()
+        call_command('process_recurring_orders', stdout=out)
+        output = out.getvalue()
+
+        return Response({'success': True, 'output': output})

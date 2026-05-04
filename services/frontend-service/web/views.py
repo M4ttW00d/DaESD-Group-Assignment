@@ -216,6 +216,43 @@ def _finalize_pending_order(request, *, payment_id, session_id, order_reference)
     )
     return None, placement_error
 
+def trigger_recurring_orders(request):
+    if request.method != 'POST':
+        return redirect('/admin-dashboard/')
+    
+    try:
+        resp = requests.post(
+            f"{PLATFORM_API_URL}/api/orders/recurring/trigger/",
+            headers=get_auth_headers(request),
+            timeout=15
+        )
+        if resp.status_code == 200:
+            output = resp.json().get('output', '')
+            return redirect(f'/admin-dashboard/?success={quote("Recurring orders processed. " + output)}')
+        else:
+            error = _extract_error_from_response(resp, "Could not trigger recurring orders.")
+            return redirect(f'/admin-dashboard/?error={quote(error)}')
+    except Exception as e:
+        return redirect(f'/admin-dashboard/?error={quote(str(e))}')
+    
+def update_recurring_orders_reorder_date(request):
+    if request.method != 'POST':
+        return redirect('/admin-dashboard/')
+    
+    try:
+        resp = requests.post(
+            f"{PLATFORM_API_URL}/api/orders/recurring/order-date-update/",
+            headers=get_auth_headers(request),
+            timeout=15
+        )
+        if resp.status_code == 200:
+            output = resp.json().get('output', '')
+            return redirect(f'/admin-dashboard/?success={quote("Active recurring orders reorder date processed. " + output)}')
+        else:
+            error = _extract_error_from_response(resp, "Could not change recurring orders reorder date.")
+            return redirect(f'/admin-dashboard/?error={quote(error)}')
+    except Exception as e:
+        return redirect(f'/admin-dashboard/?error={quote(str(e))}')
 
 def index(request):
     products = []

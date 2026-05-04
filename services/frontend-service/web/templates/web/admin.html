@@ -517,6 +517,49 @@
     transition: border-color 0.2s;
 }
 .search-input:focus { border-color: var(--green); background: #fff; }
+
+/* Secondary / outline button */
+.action-buttons {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.action-buttons h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.divider {
+    color: #ccc;
+    font-weight: 400;
+}
+
+.action-buttons form {
+    display: inline-flex;
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--green);
+    border: 1.5px solid var(--green);
+    padding: 0.7rem 1.5rem;
+    border-radius: var(--radius);
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-secondary:hover {
+    background: var(--green);
+    color: #fff;
+}
 {% endblock %}
 
 {% block content %}
@@ -672,6 +715,25 @@
 
     <!-- Orders Tab -->
     <div id="tab-orders" class="tab-panel">
+        <div class="action-buttons">
+            <div>
+                <h3>MANAGEMENT</h3>
+            </div>
+            <div class="divider">|</div>
+            <div>
+                <form method="POST" action="/orders/recurring/order-date-update/" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-secondary">🕑 Set Active Recurring Orders Reorder Dates To Today</button>
+                </form>
+            </div>
+            <div class="divider">|</div>
+            <div>
+                <form method="POST" action="/orders/recurring/trigger/" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-secondary">⚡ Process Recurring Orders Now</button>
+                </form>
+            </div>
+        </div>
         <div class="search-bar" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
             <input class="search-input" style="flex:1;min-width:200px;" type="text" id="orders-search" placeholder="Search orders by ID, customer or status…" oninput="filterOrders()">
             <input type="date" class="date-filter-input" id="orders-date-from" onchange="filterOrders()" placeholder="From">
