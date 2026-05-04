@@ -49,6 +49,7 @@ services:
     ports:
       - "8001:8001"
     environment:
+      - RUN_MIGRATIONS=false
       - DB_HOST=${DB_HOST}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
@@ -71,6 +72,7 @@ services:
     ports:
       - "8002:8002"
     environment:
+      - RUN_MIGRATIONS=true
       - DB_HOST=${DB_HOST}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
@@ -89,6 +91,44 @@ services:
     networks:
       - brfn-network
 
+  seasonal-scheduler:
+    build: ./services/platform-service
+    container_name: brfn_seasonal_scheduler
+    command: >
+      sh -c "
+        echo 'Seasonal scheduler started';
+        while true; do
+          DAY=$(date +%d);
+          HOUR=$(date +%H);
+          if [ \"$$DAY\" = '01' ] && [ \"$$HOUR\" = '08' ]; then
+            echo '[scheduler] Running send_seasonal_reminders...';
+            python manage.py send_seasonal_reminders;
+            sleep 3600;
+          else
+            sleep 1800;
+          fi
+        done
+      "
+    volumes:
+      - ./services/platform-service:/code
+    environment:
+      - RUN_MIGRATIONS=false
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DEBUG=${DEBUG}
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+      notifications-api:
+        condition: service_started
+    networks:
+      - brfn-network
+
   # Payment Gateway Service (External Mock)
   payment-gateway:
     build: ./services/payment-gateway-service
@@ -99,6 +139,7 @@ services:
     ports:
       - "8003:8003"
     environment:
+      - RUN_MIGRATIONS=false
       - DB_HOST=${DB_HOST}
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
@@ -111,6 +152,7 @@ services:
         condition: service_healthy
     networks:
       - brfn-network
+
 
 volumes:
   mysql_data:

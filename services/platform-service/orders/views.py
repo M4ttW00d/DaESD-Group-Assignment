@@ -59,6 +59,7 @@ class OrderCreateView(APIView):
         total_amount = Decimal('0.00')
         
         # Create separate orders for each producer
+        notified_producers = []
         for producer, producer_basket_items in items_by_producer.items():
             producer_id = str(producer.id)
             order = Order.objects.create(
@@ -68,7 +69,8 @@ class OrderCreateView(APIView):
                 delivery_date=delivery_dates.get(producer_id),
                 collection_type=collection_types.get(producer_id)
             )
-            
+            notified_producers.append(producer.id)
+
             order_subtotal = Decimal('0.00')
             
             # Create order items
@@ -86,6 +88,42 @@ class OrderCreateView(APIView):
                     product.stock_quantity -= basket_item.quantity
                     product.save()
                     order_subtotal += product.price * basket_item.quantity
+
+                    low_threshold = getattr(product, 'low_stock_threshold', 10)
+                    if product.stock_quantity == 0:
+                        try:
+                            requests.post(
+                                f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                                json={
+                                    'user':    producer.id,
+                                    'message': f"'{product.name}' is now out of stock.",
+                                    'type':    'OUT_OF_STOCK',
+                                    'title':   f'Out of Stock: {product.name}',
+                                },
+                                headers={'X-Service-Secret': SERVICE_SECRET_KEY},
+                                timeout=5
+                            )
+                        except Exception:
+                            pass
+                    elif product.stock_quantity <= low_threshold:
+                        try:
+                            requests.post(
+                                f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                                json={
+                                    'user':    producer.id,
+                                    'message': (
+                                        f"Low stock: '{product.name}' has only "
+                                        f"{product.stock_quantity} unit(s) left."
+                                    ),
+                                    'type':    'LOW_STOCK',
+                                    'title':   f'Low Stock: {product.name}',
+                                },
+                                headers={'X-Service-Secret': SERVICE_SECRET_KEY},
+                                timeout=5
+                            )
+                        except Exception:
+                            pass
+
                 except ValueError as e:
                     return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -100,7 +138,26 @@ class OrderCreateView(APIView):
         # Update customer order totals
         customer_order.total_amount = total_amount
         customer_order.save()
-        
+
+        for producer_id in notified_producers:
+            try:
+                requests.post(
+                    f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                    json={
+                        'user':    producer_id,
+                        'message': (
+                            f"You have a new order from {request.user.username}. "
+                            "Log in to your dashboard to view the details."
+                        ),
+                        'type':  'ORDER_PLACED',
+                        'title': 'New Order Received',
+                    },
+                    headers={'X-Service-Secret': SERVICE_SECRET_KEY},
+                    timeout=5
+                )
+            except Exception:
+                pass
+
         # Clear customer's basket once order is successfully placed
         basket.items.all().delete()
         
@@ -165,6 +222,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Order.objects.filter(customer=user)
 
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
+SERVICE_SECRET_KEY    = os.environ.get('JWT_SECRET_KEY', 'change-this-secret-key-for-jwt-tokens')
 
 class OrderStatusUpdateView(APIView):
     """
@@ -216,18 +274,30 @@ class OrderStatusUpdateView(APIView):
             note=note
         )
 
-        # Trigger notification to customer
+        # Trigger notification to customer with a status-specific type (TC-010)
+        status_type_map = {
+            'CONFIRMED': 'ORDER_CONFIRMED',
+            'READY':     'ORDER_READY',
+            'DELIVERED': 'ORDER_DELIVERED',
+            'CANCELLED': 'ORDER_CANCELLED',
+        }
+        notification_type = status_type_map.get(new_status, 'ORDER_UPDATE')
         try:
             requests.post(
                 f"{NOTIFICATIONS_API_URL}/api/notifications/",
                 json={
-                    'user': order.customer.id,
-                    'message': f"Order #{order.id} status updated to {new_status}" + (f" - Note: {note}" if note else ""),
-                    'type': 'ORDER_UPDATE'
+                    'user':    order.customer.id,
+                    'message': (
+                        f"Your order #{order.id} has been updated to {new_status.lower()}"
+                        + (f". Note: {note}" if note else ".")
+                    ),
+                    'type':  notification_type,
+                    'title': f'Order #{order.id} {new_status.capitalize()}',
                 },
+                headers={'X-Service-Secret': SERVICE_SECRET_KEY},
                 timeout=5
             )
         except Exception:
-            pass # Non-critical if notification fails
+            pass  # Non-critical if notification fails
 
         return Response({'success': True, 'status': new_status})

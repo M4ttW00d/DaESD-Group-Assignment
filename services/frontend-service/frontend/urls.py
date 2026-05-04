@@ -61,4 +61,13 @@ urlpatterns = [
     
     # Public Producer Profile
     path('producers/<int:producer_id>/', views.producer_public_profile, name='producer_public_profile'),
+
+    # Notifications proxy
+    path('notifications/count/', views.notifications_count_view, name='notifications-count'),
+    path('notifications/', views.notifications_list_view, name='notifications-list'),
+    path('notifications/<int:pk>/read/', views.notifications_mark_read_view, name='notifications-mark-read'),
+    path('notifications/read-all/', views.notifications_mark_all_read_view, name='notifications-mark-all-read'),
+
+    path('producers/<int:producer_id>/favourite/', views.favourite_toggle_view, name='favourite-toggle'),
+    path('favourites/', views.favourite_list_view, name='favourite-list'),
 ]

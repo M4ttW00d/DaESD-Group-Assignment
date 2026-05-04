@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -116,3 +117,24 @@ class CustomerProfile(models.Model):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}".strip() or self.user.username
+
+
+class FavouriteProducer(models.Model):
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favourite_producers',
+    )
+    producer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='favourited_by',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'favourite_producers'
+        unique_together = ('customer', 'producer')
+
+    def __str__(self):
+        return f"{self.customer.username} → {self.producer.username}"

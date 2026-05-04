@@ -14,6 +14,7 @@ PLATFORM_API_URL = os.environ.get('PLATFORM_API_URL', 'http://platform-api:8002'
 # Used by the browser to load product images served by the platform service.
 MEDIA_BASE_URL = os.environ.get('MEDIA_BASE_URL', 'http://localhost:8002')
 PAYMENT_GATEWAY_URL = os.environ.get('PAYMENT_GATEWAY_URL', 'http://payment-gateway:8003')
+NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
 
 def _get_postcode_coords(postcode):
     """Fetch lat/lng for a UK postcode from postcodes.io. Returns (lat, lng) or (None, None)."""
@@ -354,7 +355,9 @@ def login_view(request):
                         timeout=5
                     )
                     if profile_resp.status_code == 200:
-                        role = profile_resp.json().get('role', 'CUSTOMER')
+                        profile_data = profile_resp.json()
+                        role = profile_data.get('role', 'CUSTOMER')
+                        request.session['user_id'] = profile_data.get('id')
                 except:
                     pass
 
@@ -1877,6 +1880,116 @@ def delete_farm_story_view(request, story_id):
     except:
         pass
     return redirect('/dashboard/content/')
+
+
+def notifications_count_view(request):
+    from django.http import JsonResponse
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'unread_count': 0})
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/unread-count/",
+            params={'recipient_id': user_id},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json())
+    except Exception:
+        pass
+    return JsonResponse({'unread_count': 0})
+
+
+def notifications_list_view(request):
+    from django.http import JsonResponse
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse([], safe=False)
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/list/",
+            params={'recipient_id': user_id},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json(), safe=False)
+    except Exception:
+        pass
+    return JsonResponse([], safe=False)
+
+
+def notifications_mark_read_view(request, pk):
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    try:
+        resp = requests.patch(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/{pk}/",
+            json={'recipient_id': user_id},
+            timeout=5
+        )
+        return JsonResponse({'ok': resp.status_code == 200})
+    except Exception:
+        return JsonResponse({'ok': False})
+
+
+def notifications_mark_all_read_view(request):
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    try:
+        resp = requests.patch(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/read-all/",
+            json={'recipient_id': user_id},
+            timeout=5
+        )
+        return JsonResponse({'ok': resp.status_code == 200})
+    except Exception:
+        return JsonResponse({'ok': False})
+
+
+def favourite_toggle_view(request, producer_id):
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    token = request.session.get('token')
+    if not token:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    try:
+        resp = requests.post(
+            f"{PLATFORM_API_URL}/api/auth/favourites/{producer_id}/",
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=5
+        )
+        if resp.status_code in (200, 201):
+            return JsonResponse(resp.json())
+        return JsonResponse({'error': 'Failed'}, status=resp.status_code)
+    except Exception:
+        return JsonResponse({'error': 'Service unavailable'}, status=503)
+
+
+def favourite_list_view(request):
+    from django.http import JsonResponse
+    token = request.session.get('token')
+    if not token:
+        return JsonResponse({'favourited_producer_ids': []})
+    try:
+        resp = requests.get(
+            f"{PLATFORM_API_URL}/api/auth/favourites/",
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json())
+    except Exception:
+        pass
+    return JsonResponse({'favourited_producer_ids': []})
 
 
 def custom_404(request, exception=None):

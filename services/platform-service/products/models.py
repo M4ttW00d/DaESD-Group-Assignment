@@ -49,6 +49,10 @@ class Product(models.Model):
     unit = models.CharField(max_length=50, blank=True, null=True, help_text=_("e.g., 'dozen', 'kg'"))
     
     stock_quantity = models.PositiveIntegerField(default=0, help_text=_("Real-time inventory tracking"))
+    low_stock_threshold = models.PositiveIntegerField(
+        default=10,
+        help_text=_("Send a LOW_STOCK notification to the producer when stock falls to or below this value")
+    )
     allergen_info = models.TextField(blank=True, null=True, help_text=_("Additional allergen information not covered by the 14 major allergens"))
     allergens = models.JSONField(default=list, blank=True, help_text=_("List of major allergens from the UK 14 allergens list"))
     
@@ -68,6 +72,15 @@ class Product(models.Model):
         validators=[validate_product_image]
     )
     
+    seasonal_reminder_sent_month = models.PositiveSmallIntegerField(
+        blank=True, null=True,
+        help_text=_("Month (1-12) for which the last seasonal reminder was sent, to avoid duplicates")
+    )
+    seasonal_reminder_sent_year = models.PositiveSmallIntegerField(
+        blank=True, null=True,
+        help_text=_("Year for which the last seasonal reminder was sent, to avoid duplicates")
+    )
+
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00, help_text=_("Cached average rating"))
     review_count = models.PositiveIntegerField(default=0, help_text=_("Number of reviews"))
     
