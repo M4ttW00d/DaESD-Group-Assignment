@@ -14,6 +14,7 @@ PLATFORM_API_URL = os.environ.get('PLATFORM_API_URL', 'http://platform-api:8002'
 # Used by the browser to load product images served by the platform service.
 MEDIA_BASE_URL = os.environ.get('MEDIA_BASE_URL', 'http://localhost:8002')
 PAYMENT_GATEWAY_URL = os.environ.get('PAYMENT_GATEWAY_URL', 'http://payment-gateway:8003')
+PAYMENT_GATEWAY_API_URL = os.environ.get('PAYMENT_GATEWAY_API_URL', PAYMENT_GATEWAY_URL).rstrip('/')
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
 
 def _get_postcode_coords(postcode):
@@ -80,7 +81,11 @@ def _api_error_message(status_code):
 AUTH_EXPIRED_ERROR = '__AUTH_EXPIRED__'
 
 
-def _build_payment_checkout_payload(*, basket, pending_order_reference):
+def _build_payment_checkout_payload(*, basket, pending_order_reference, customer_email='', customer_id=''):
+    """
+    Build the JSON payload expected by payment-gateway /payments/api/checkout/
+    from the current basket snapshot.
+    """
     items = []
     basket_items = basket.get('items') or []
     total_amount = basket.get('total_price')
@@ -107,7 +112,30 @@ def _build_payment_checkout_payload(*, basket, pending_order_reference):
         payload['total_amount'] = str(total_amount)
         payload['title'] = f'Order {pending_order_reference}'
 
+    if customer_email:
+        payload['customer_email'] = customer_email
+
+    if customer_id:
+        payload['user_id'] = str(customer_id)
+
     return payload
+
+
+def _candidate_payment_gateway_api_bases():
+    """Return candidate base URLs for payment-gateway API calls."""
+    bases = []
+    for base in (
+        PAYMENT_GATEWAY_API_URL,
+        PAYMENT_GATEWAY_URL,
+        'http://payment-gateway:8003',
+        'http://localhost:8003',
+        'http://127.0.0.1:8003',
+    ):
+        normalized = str(base or '').rstrip('/')
+        if normalized and normalized not in bases:
+            bases.append(normalized)
+    return bases
+
 
 
 def _extract_error_from_response(response, default_message):
@@ -644,13 +672,18 @@ def profile_view(request):
 
 
 def admin_dashboard(request):
+    """
+    Admin dashboard with tabs for users, products, orders, transactions, and site stats.
+    """
     """Admin dashboard with commission monitoring."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
 
     headers = get_auth_headers(request)
-    users, products, orders = [], [], []
+    users, products, orders, transactions = [], [], [], []
     error = None
+    transaction_error = None
+    transaction_debug = []
 
     try:
         resp_users = requests.get(f"{PLATFORM_API_URL}/api/auth/users/", headers=headers, timeout=5)
@@ -667,8 +700,40 @@ def admin_dashboard(request):
 
     except requests.exceptions.ConnectionError:
         error = "Cannot reach the platform API. Please check the service is running."
+    except requests.exceptions.Timeout:
+        error = "A service request timed out while loading the admin dashboard."
     except Exception as e:
         error = f"Unexpected error: {str(e)}"
+
+    for base_url in _candidate_payment_gateway_api_bases():
+        transactions_url = f"{base_url}/payments/api/transactions/?limit=50"
+        try:
+            resp_transactions = requests.get(transactions_url, timeout=8)
+        except requests.exceptions.ConnectionError:
+            transaction_debug.append(f"{transactions_url} -> connection error")
+            continue
+        except requests.exceptions.Timeout:
+            transaction_debug.append(f"{transactions_url} -> timed out")
+            continue
+        except Exception as exc:
+            transaction_debug.append(f"{transactions_url} -> unexpected error: {str(exc)}")
+            continue
+
+        if resp_transactions.status_code == 200:
+            trans_data = resp_transactions.json()
+            transactions = trans_data.get('transactions', [])
+            break
+
+        tx_error = _extract_error_from_response(
+            resp_transactions,
+            'Unknown payment-gateway error.',
+        )
+        transaction_debug.append(
+            f"{transactions_url} -> status {resp_transactions.status_code}: {tx_error}"
+        )
+
+    if not transactions and transaction_debug:
+        transaction_error = "Transactions could not be loaded from payment-gateway."
 
     total_revenue = sum(float(o.get('total_amount', 0)) for o in orders)
     total_commission = sum(float(o.get('commission_total') or 0) for o in orders)
@@ -708,9 +773,39 @@ def admin_dashboard(request):
         key=lambda x: x['miles'], reverse=True
     )
 
+    # Fetch settlement history and any unsettled payment count
+    settlements = []
+    settlement_error = None
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            resp_s = requests.get(f"{base_url}/payments/api/settlements/", timeout=8)
+            if resp_s.status_code == 200:
+                settlements = resp_s.json().get('settlements', [])
+                break
+        except Exception:
+            continue
+
+    unsettled_count = 0
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            resp_u = requests.get(f"{base_url}/payments/api/unsettled/", timeout=8)
+            if resp_u.status_code == 200:
+                unsettled_count = len(resp_u.json().get('payments', []))
+                break
+        except Exception:
+            continue
+
+    settlement_message = request.GET.get('settlement_msg', '')
+    if not settlement_message:
+        settlement_error = request.GET.get('settlement_error', '')
+
     return render(request, 'web/admin.html', {
         'users': users,
         'products': products,
+        'orders': orders,
+        'transactions': transactions,
+        'transaction_error': transaction_error,
+        'transaction_debug': transaction_debug,
         'all_orders': orders,
         'error': error,
         'total_revenue': total_revenue,
@@ -722,15 +817,138 @@ def admin_dashboard(request):
         'total_food_miles': round(total_food_miles, 1),
         'producer_food_miles': producer_food_miles_list,
         'media_base_url': MEDIA_BASE_URL,
+        'settlements': settlements,
+        'settlement_message': settlement_message,
+        'settlement_error': settlement_error,
+        'unsettled_count': unsettled_count,
     })
+
+
+def admin_run_weekly_settlement(request):
+    """Compile outstanding paid transactions into a settlement and send to payment-gateway."""
+    if not request.session.get('token') or request.session.get('role') != 'ADMIN':
+        return redirect('/login/')
+    if request.method != 'POST':
+        return redirect('/admin-dashboard/')
+
+    headers = get_auth_headers(request)
+
+    # 1. Get unsettled successful payments from payment-gateway
+    unsettled_payments = []
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            resp = requests.get(f"{base_url}/payments/api/unsettled/", timeout=10)
+            if resp.status_code == 200:
+                unsettled_payments = resp.json().get('payments', [])
+                break
+        except Exception:
+            continue
+
+    if not unsettled_payments:
+        return redirect('/admin-dashboard/?settlement_msg=No+outstanding+paid+transactions+to+settle')
+
+    # 2. Fetch all platform orders (each has customer_order FK + producer info)
+    all_orders = []
+    try:
+        resp_o = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=headers, timeout=10)
+        if resp_o.status_code == 200:
+            all_orders = resp_o.json()
+    except Exception:
+        pass
+
+    # 3. Fetch users to build producer stripe_account_id lookup
+    all_users = []
+    try:
+        resp_u = requests.get(f"{PLATFORM_API_URL}/api/auth/users/", headers=headers, timeout=5)
+        if resp_u.status_code == 200:
+            all_users = resp_u.json()
+    except Exception:
+        pass
+
+    producer_stripe_map = {}
+    for u in all_users:
+        if u.get('role') == 'PRODUCER':
+            profile = u.get('producer_profile') or {}
+            producer_stripe_map[str(u['id'])] = {
+                'producer_name': profile.get('business_name') or u.get('username', ''),
+                'stripe_account_id': profile.get('stripe_account_id', ''),
+            }
+
+    # 4. Build set of CustomerOrder IDs covered by unsettled payments
+    unsettled_order_ids = {str(p['order_id']) for p in unsettled_payments if p.get('order_id')}
+    payment_ids = [p['payment_id'] for p in unsettled_payments]
+
+    # 5. Compile per-producer totals using platform orders
+    producer_totals = {}
+    for o in all_orders:
+        co_id = str(o.get('customer_order', '') or '')
+        if not co_id or co_id not in unsettled_order_ids:
+            continue
+        producer_id = str(o.get('producer_id') or o.get('producer') or '')
+        if not producer_id:
+            continue
+        total = float(o.get('total_amount', 0) or 0)
+        commission = float(o.get('commission_total', 0) or 0)
+        payout = total - commission  # 95%
+        if producer_id not in producer_totals:
+            info = producer_stripe_map.get(producer_id, {})
+            producer_totals[producer_id] = {
+                'producer_id': producer_id,
+                'producer_name': info.get('producer_name') or f'Producer {producer_id}',
+                'stripe_account_id': info.get('stripe_account_id', ''),
+                'amount': 0.0,
+            }
+        producer_totals[producer_id]['amount'] += payout
+
+    if not producer_totals:
+        return redirect(
+            '/admin-dashboard/?settlement_error=' +
+            quote('Could not match paid transactions to any platform orders. Ensure order IDs match.')
+        )
+
+    # 6. POST compiled settlement to payment-gateway
+    settlement_payload = {
+        'payment_ids': payment_ids,
+        'producers': [
+            {**v, 'amount': str(round(v['amount'], 2))}
+            for v in producer_totals.values()
+        ],
+    }
+
+    settlement_resp = None
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            settlement_resp = requests.post(
+                f"{base_url}/payments/api/settlements/run/",
+                json=settlement_payload,
+                timeout=30,
+            )
+            break
+        except Exception:
+            continue
+
+    if settlement_resp and settlement_resp.status_code == 200:
+        data = settlement_resp.json()
+        msg = quote(f"Settlement #{data.get('settlement_id')} completed — £{data.get('total_amount')} across {data.get('producer_count')} producer(s)")
+        return redirect(f'/admin-dashboard/?settlement_msg={msg}')
+
+    err = 'Settlement failed — could not reach payment gateway'
+    if settlement_resp:
+        err = f'Settlement failed (status {settlement_resp.status_code})'
+        try:
+            details = settlement_resp.json().get('error', '')
+            if details:
+                err = f'{err}: {details}'
+        except Exception:
+            if settlement_resp.text:
+                err = f'{err}: {settlement_resp.text[:180]}'
+    return redirect(f'/admin-dashboard/?settlement_error={quote(err)}')
 
 
 def admin_commission_export(request):
     """Export commission data as CSV."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
-
-    headers = get_auth_headers(request)
     orders = []
 
     try:
@@ -812,6 +1030,7 @@ def admin_edit_user(request, user_id):
                 'business_address': request.POST.get('business_address', '').strip(),
                 'postcode': request.POST.get('producer_postcode', '').strip(),
                 'bio': request.POST.get('bio', '').strip(),
+                'stripe_account_id': request.POST.get('stripe_account_id', '').strip(),
             }
         try:
             requests.patch(
@@ -847,6 +1066,10 @@ def producer_dashboard(request):
     products = []
     error = None
     username = request.session.get('username')
+    producer_id = str(request.session.get('user_id') or '')
+    payouts = []
+    payout_total = 0.0
+    transferred_count = 0
 
     try:
         resp = requests.get(
@@ -864,10 +1087,46 @@ def producer_dashboard(request):
     except Exception as e:
         error = f"Unexpected error: {str(e)}"
 
+    # Read settlement history from payment gateway and show only this producer's rows.
+    if producer_id:
+        settlements = []
+        for base_url in _candidate_payment_gateway_api_bases():
+            try:
+                settlement_resp = requests.get(f"{base_url}/payments/api/settlements/", timeout=8)
+                if settlement_resp.status_code == 200:
+                    settlements = settlement_resp.json().get('settlements', [])
+                    break
+            except Exception:
+                continue
+
+        for settlement in settlements:
+            for row in settlement.get('producers', []) or []:
+                if str(row.get('producer_id') or '') != producer_id:
+                    continue
+                amount = float(row.get('amount') or 0)
+                payout_total += amount
+                if row.get('status') == 'TRANSFERRED':
+                    transferred_count += 1
+                payouts.append({
+                    'settlement_id': settlement.get('id'),
+                    'created_at': settlement.get('created_at', ''),
+                    'week_start': settlement.get('week_start', ''),
+                    'week_end': settlement.get('week_end', ''),
+                    'amount': amount,
+                    'status': row.get('status', ''),
+                    'transfer_id': row.get('transfer_id', ''),
+                    'error_message': row.get('error_message', ''),
+                })
+
+        payouts.sort(key=lambda r: (r.get('created_at') or ''), reverse=True)
+
     return render(request, 'web/dashboard.html', {
         'products': products,
         'error': error,
         'media_base_url': MEDIA_BASE_URL,
+        'payouts': payouts,
+        'payout_total': payout_total,
+        'transferred_count': transferred_count,
     })
 
 
@@ -1434,7 +1693,31 @@ def create_order(request):
     request.session.pop('finalized_order_id', None)
     request.session.modified = True
 
-    checkout_payload = _build_payment_checkout_payload(basket=basket, pending_order_reference=pending_order_reference)
+    # Fetch current user to get their email and ID
+    customer_email = ''
+    customer_id = ''
+    try:
+        user_resp = requests.get(
+            f"{PLATFORM_API_URL}/api/auth/me/",
+            headers=get_auth_headers(request),
+            timeout=5
+        )
+        if user_resp.status_code == 200:
+            user_data = user_resp.json()
+            customer_email = user_data.get('email', '')
+            customer_id = str(
+                user_data.get('id') or user_data.get('user_id') or user_data.get('pk') or ''
+            )
+    except:
+        pass
+
+    checkout_payload = _build_payment_checkout_payload(
+        basket=basket,
+        pending_order_reference=pending_order_reference,
+        customer_email=customer_email,
+        customer_id=customer_id,
+    )
+    checkout_payload['frontend_base_url'] = request.build_absolute_uri('/').rstrip('/')
 
     try:
         checkout_resp = requests.post(f"{PAYMENT_GATEWAY_URL}/payments/api/checkout/", json=checkout_payload, timeout=10)
@@ -1886,6 +2169,35 @@ def producer_orders_view(request):
         resp = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=get_auth_headers(request), timeout=5)
         if resp.status_code == 200:
             orders = resp.json()
+            # Calculate food miles for DELIVERED delivery orders only
+            try:
+                for orders in orders:
+                    status = (order.get('status') or '').upper()
+                    collection_type = (order.get('collection_type') or '').lower()
+                    if status == 'DELIVERED' and 'collect' not in collection_type:
+                        items = order.get('items', [])
+                        customer_postcode = order.get('customer_postcode')
+                        if not customer_postcode and items:
+                            # Try to get customer postcode from order data
+                            customer_postcode = (order.get('customer_profile') or {}).get('postcode')
+                        producer_postcode = None
+                        if items:
+                            product_id = items[0].get('product')
+                            if product_id:
+                                prod_resp = requests.get(
+                                    f"{PLATFORM_API_URL}/api/products/{product_id}/",
+                                    headers=get_auth_headers(request),
+                                    timeout=5
+                                )
+                                if prod_resp.status_code == 200:
+                                    producer_postcode = (prod_resp.json().get('producer_profile') or {}).get('postcode')
+                        if customer_postcode and producer_postcode:
+                            miles = _calculate_food_miles(customer_postcode, producer_postcode)
+                            if miles:
+                                order['food_miles'] = miles
+                                total_food_miles += miles
+            except Exception:
+                pass
             # Food miles stored on order - just read directly
             for order in orders:
                 miles = float(order.get('food_miles') or 0)

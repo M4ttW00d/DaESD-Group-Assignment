@@ -79,6 +79,12 @@ class ProducerProfile(models.Model):
     business_address = models.TextField(blank=True, default='')
     postcode = models.CharField(max_length=20, blank=True, default='', help_text="Used for Food Miles calculation")
     bio = models.TextField(blank=True, default='')
+    stripe_account_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Stripe connected account ID (acct_xxx) for payouts",
+    )
 
     class Meta:
         db_table = 'producer_profiles'

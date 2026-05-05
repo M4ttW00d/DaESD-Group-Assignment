@@ -244,6 +244,67 @@
 .status-ready     { background: #e3f2fd; color: #1565c0; }
 .status-delivered { background: #f3e5f5; color: #6a1b9a; }
 
+.status-payment-paid              { background: #e8f5ee; color: #00622e; }
+.status-payment-unpaid            { background: #fdf3dc; color: #9a6b10; }
+.status-payment-no_payment_required { background: #e3f2fd; color: #1565c0; }
+
+.copy-btn {
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.75rem;
+    color: var(--green);
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--green);
+    background: transparent;
+    transition: background 0.2s, color 0.2s;
+}
+.copy-btn:hover { background: var(--green); color: #fff; }
+.copy-btn.copied { background: var(--green); color: #fff; }
+
+.session-id-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.session-id-chip {
+    display: inline-block;
+    max-width: 420px;
+    padding: 0.26rem 0.5rem;
+    border: 1px solid #c9d9ce;
+    border-radius: 6px;
+    background: #f6faf7;
+    color: var(--text);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.session-id-chip:hover {
+    border-color: #9fbba9;
+    background: #eef7f1;
+}
+
+@media (max-width: 1100px) {
+    .session-id-chip { max-width: 260px; }
+}
+
+@media (max-width: 720px) {
+    .session-id-cell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+
+    .session-id-chip { max-width: 220px; }
+}
+
 .btn-sm-danger {
     background: transparent;
     color: #a0422a;
@@ -621,8 +682,10 @@
         <button class="tab-btn active" onclick="switchTab('users', this)">Users</button>
         <button class="tab-btn" onclick="switchTab('products', this)">Products</button>
         <button class="tab-btn" onclick="switchTab('orders', this)">Orders</button>
+        <button class="tab-btn" onclick="switchTab('transactions', this)">Transactions</button>
         <button class="tab-btn" onclick="switchTab('commission', this)">Commission</button>
         <button class="tab-btn" onclick="switchTab('foodmiles', this)">Food Miles</button>
+        <button class="tab-btn" onclick="switchTab('settlements', this)">Settlements{% if unsettled_count %} <span style="background:#e8f5ee;color:#00622e;border-radius:10px;padding:1px 7px;font-size:0.72rem;">{{ unsettled_count }} pending</span>{% endif %}</button>
     </div>
 
     <!-- Users Tab -->
@@ -652,7 +715,7 @@
                     </td>
                     <td>{{ user.phone_number|default:"—" }}</td>
                     <td>
-                        <script type="application/json" id="user-data-{{ user.id }}">{"id": {{ user.id }}, "username": "{{ user.username|escapejs }}", "email": "{{ user.email|default:''|escapejs }}", "phone": "{{ user.phone_number|default:''|escapejs }}", "role": "{{ user.role }}", "firstName": "{{ user.customer_profile.first_name|default:''|escapejs }}", "lastName": "{{ user.customer_profile.last_name|default:''|escapejs }}", "deliveryAddress": "{{ user.customer_profile.delivery_address|default:''|escapejs }}", "customerPostcode": "{{ user.customer_profile.postcode|default:''|escapejs }}", "businessName": "{{ user.producer_profile.business_name|default:''|escapejs }}", "businessAddress": "{{ user.producer_profile.business_address|default:''|escapejs }}", "producerPostcode": "{{ user.producer_profile.postcode|default:''|escapejs }}", "bio": "{{ user.producer_profile.bio|default:''|escapejs }}"}</script>
+                        <script type="application/json" id="user-data-{{ user.id }}">{"id": {{ user.id }}, "username": "{{ user.username|escapejs }}", "email": "{{ user.email|default:''|escapejs }}", "phone": "{{ user.phone_number|default:''|escapejs }}", "role": "{{ user.role }}", "firstName": "{{ user.customer_profile.first_name|default:''|escapejs }}", "lastName": "{{ user.customer_profile.last_name|default:''|escapejs }}", "deliveryAddress": "{{ user.customer_profile.delivery_address|default:''|escapejs }}", "customerPostcode": "{{ user.customer_profile.postcode|default:''|escapejs }}", "businessName": "{{ user.producer_profile.business_name|default:''|escapejs }}", "businessAddress": "{{ user.producer_profile.business_address|default:''|escapejs }}", "producerPostcode": "{{ user.producer_profile.postcode|default:''|escapejs }}", "bio": "{{ user.producer_profile.bio|default:''|escapejs }}", "stripeAccountId": "{{ user.producer_profile.stripe_account_id|default:''|escapejs }}"}</script>
                         <button class="btn-sm-edit" onclick="openEditModalFromBtn({{ user.id }})">Edit</button>
                         {% if user.role != 'ADMIN' %}
                         <button type="button" class="btn-sm-danger" onclick="showConfirmModal('Delete User', 'Delete user {{ user.username }}? This cannot be undone.', '/admin-dashboard/users/{{ user.id }}/delete/')">Delete</button>
@@ -906,6 +969,166 @@
         </table>
     </div>
 
+    <!-- Transactions Tab -->
+    <div id="tab-transactions" class="tab-panel">
+        {% if transaction_error %}
+        <div class="error-banner" style="margin-bottom: 1rem;">{{ transaction_error }}</div>
+        {% endif %}
+        {% if transaction_debug %}
+        <div style="margin-bottom: 1rem; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: #f7faf8; color: var(--text-muted); font-size: 0.82rem;">
+            <strong style="color: var(--text);">Transaction debug details:</strong>
+            <ul style="margin: 0.5rem 0 0 1rem;">
+                {% for entry in transaction_debug %}
+                <li>{{ entry }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <div class="search-bar">
+            <input class="search-input" type="text" placeholder="Search transactions by session ID, order ID or user ID..." oninput="filterTable('transactions-table', this.value)">
+        </div>
+        <table class="data-table" id="transactions-table">
+            <thead>
+                <tr>
+                    <th style="cursor:pointer;" onclick="sortTableByCol('transactions-table', 0)">Session ID ↕</th>
+                    <th>Order ID</th>
+                    <th>User ID</th>
+                    <th>Amount</th>
+                    <th>Payment Status</th>
+                    <th style="cursor:pointer;" onclick="sortTableByCol('transactions-table', 5)">Created ↕</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>
+                        <div class="session-id-cell">
+                            <span class="session-id-chip" title="{{ transaction.session_id }}">{{ transaction.session_id }}</span>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ transaction.session_id }}', this)">Copy</button>
+                        </div>
+                    </td>
+                    <td>{{ transaction.order_id|default:"—" }}</td>
+                    <td>{{ transaction.user_id|default:"—" }}</td>
+                    <td>{{ transaction.amount_total }} {{ transaction.currency }}</td>
+                    <td>
+                        <span class="status-badge status-payment-{{ transaction.payment_status|lower }}">{{ transaction.payment_status }}</span>
+                    </td>
+                    <td>{{ transaction.created_at }}</td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="6">No transactions found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Settlements Tab -->
+    <div id="tab-settlements" class="tab-panel">
+        {% if settlement_message %}
+        <div style="margin-bottom:1rem;padding:0.85rem 1rem;border:1px solid #b8dfc8;border-radius:8px;background:#eef7f1;color:#00622e;font-weight:600;">
+            {{ settlement_message }}
+        </div>
+        {% endif %}
+        {% if settlement_error %}
+        <div class="error-banner" style="margin-bottom:1rem;">{{ settlement_error }}</div>
+        {% endif %}
+
+        <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+            <div>
+                <div class="stat-label">Outstanding Paid Transactions</div>
+                <div class="stat-value" style="font-size:1.5rem;">{{ unsettled_count }}</div>
+            </div>
+            <form method="POST" action="/admin-dashboard/settlements/run/" style="margin-left:auto;">
+                {% csrf_token %}
+                <button type="submit" class="date-filter-submit" style="padding:0.6rem 1.4rem;font-size:0.9rem;"
+                    {% if not unsettled_count %}disabled title="No outstanding payments to settle"{% endif %}>
+                    Run Weekly Settlement
+                </button>
+            </form>
+        </div>
+
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1.5rem;">
+            In a production system this would run automatically each week via a scheduled task. The button below lets you trigger it manually for testing — it compiles all outstanding paid transactions since the last settlement, calculates 95% producer payouts (deducting 5% platform commission), records the breakdown per producer, and (if a Stripe connected account ID is set on the producer) initiates a live Stripe Transfer. Producers without a Stripe account ID will show as <strong>SKIPPED</strong>.
+        </p>
+
+        {% if settlements %}
+        <table class="data-table" id="settlements-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date Run</th>
+                    <th>Period</th>
+                    <th>Total Payout</th>
+                    <th>Producers</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in settlements %}
+                <tr style="cursor:pointer;" onclick="toggleSettlementDetail('detail-{{ s.id }}')" title="Click to expand producer breakdown">
+                    <td><strong>#{{ s.id }}</strong></td>
+                    <td>{{ s.created_at|slice:":10" }}</td>
+                    <td style="font-size:0.82rem;">{{ s.week_start }} → {{ s.week_end }}</td>
+                    <td>£{{ s.total_amount }}</td>
+                    <td>{{ s.producers|length }}</td>
+                    <td>
+                        {% if s.status == 'COMPLETED' %}
+                        <span class="status-badge status-confirmed">COMPLETED</span>
+                        {% elif s.status == 'FAILED' %}
+                        <span class="status-badge" style="background:#fde8e8;color:#a0422a;">FAILED</span>
+                        {% else %}
+                        <span class="status-badge status-pending">{{ s.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr id="detail-{{ s.id }}" style="display:none;">
+                    <td colspan="6" style="padding:0;">
+                        <table style="width:100%;border-collapse:collapse;background:#f9fcfa;">
+                            <thead>
+                                <tr style="background:#e8f0ec;">
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Producer</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Payout</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Transfer Status</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Transfer ID</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ps in s.producers %}
+                                <tr style="border-top:1px solid #d4e8db;">
+                                    <td style="padding:0.5rem 1rem;">{{ ps.producer_name }}</td>
+                                    <td style="padding:0.5rem 1rem;">£{{ ps.amount }}</td>
+                                    <td style="padding:0.5rem 1rem;">
+                                        {% if ps.status == 'TRANSFERRED' %}
+                                        <span class="status-badge status-confirmed">TRANSFERRED</span>
+                                        {% elif ps.status == 'SKIPPED' %}
+                                        <span class="status-badge status-ready">SKIPPED</span>
+                                        {% elif ps.status == 'FAILED' %}
+                                        <span class="status-badge" style="background:#fde8e8;color:#a0422a;">FAILED</span>
+                                        {% else %}
+                                        <span class="status-badge status-pending">{{ ps.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding:0.5rem 1rem;font-family:monospace;font-size:0.76rem;">{{ ps.transfer_id|default:"—" }}</td>
+                                    <td style="padding:0.5rem 1rem;font-size:0.8rem;color:var(--text-muted);">{{ ps.error_message|default:"" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" style="padding:0.5rem 1rem;color:var(--text-muted);">No producer details recorded.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="6">No settlements have been run yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="color:var(--text-muted);padding:2rem 0;">No settlements have been run yet. Use the button above once paid transactions are available.</div>
+        {% endif %}
+    </div>
+
 </div>
 <br><br>
 
@@ -979,6 +1202,11 @@
                 <div class="form-group">
                     <label class="form-label">Bio</label>
                     <input class="form-input" type="text" id="edit-bio" name="bio">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Stripe Connected Account ID</label>
+                    <input class="form-input" type="text" id="edit-stripe-account-id" name="stripe_account_id" placeholder="acct_xxxxxxxxxxxxx">
+                    <small style="color:var(--text-muted);font-size:0.77rem;">Used for automated weekly payouts. Leave blank to skip transfers for this producer.</small>
                 </div>
             </div>
 
@@ -1209,14 +1437,33 @@ function toggleModalProfileFields(role) {
     document.getElementById('modal-producer-fields').style.display = role === 'PRODUCER' ? '' : 'none';
 }
 
+function copySessionId(sessionId, btn) {
+    navigator.clipboard.writeText(sessionId).then(() => {
+        btn.classList.add('copied');
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.textContent = 'Copy';
+        }, 1500);
+    });
+}
+
+function copyToClipboard(text, btn) {
+    copySessionId(text, btn);
+}
+
+function sortTableByCol(tableId, colIndex) {
+    sortTable(tableId, colIndex);
+}
+
 function openEditModalFromBtn(userId) {
     const data = JSON.parse(document.getElementById('user-data-' + userId).textContent);
     openEditModal(data.id, data.username, data.email, data.phone, data.role,
         data.firstName, data.lastName, data.deliveryAddress, data.customerPostcode,
-        data.businessName, data.businessAddress, data.producerPostcode, data.bio);
+        data.businessName, data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId);
 }
 
-function openEditModal(id, username, email, phone, role, firstName, lastName, deliveryAddress, customerPostcode, businessName, businessAddress, producerPostcode, bio) {
+function openEditModal(id, username, email, phone, role, firstName, lastName, deliveryAddress, customerPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId) {
     document.getElementById('edit-username').value = username;
     document.getElementById('edit-email').value = email;
     document.getElementById('edit-phone').value = phone;
@@ -1229,6 +1476,7 @@ function openEditModal(id, username, email, phone, role, firstName, lastName, de
     document.getElementById('edit-business-address').value = businessAddress;
     document.getElementById('edit-producer-postcode').value = producerPostcode;
     document.getElementById('edit-bio').value = bio;
+    document.getElementById('edit-stripe-account-id').value = stripeAccountId || '';
     document.getElementById('edit-user-form').action = '/admin-dashboard/users/' + id + '/edit/';
     toggleModalProfileFields(role);
     document.getElementById('edit-modal').classList.add('open');
@@ -1236,6 +1484,11 @@ function openEditModal(id, username, email, phone, role, firstName, lastName, de
 
 function closeEditModal() {
     document.getElementById('edit-modal').classList.remove('open');
+}
+
+function toggleSettlementDetail(id) {
+    const row = document.getElementById(id);
+    if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
 }
 
 document.getElementById('edit-modal').addEventListener('click', function(e) {

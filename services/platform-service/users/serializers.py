@@ -30,10 +30,11 @@ class ProducerProfileSerializer(serializers.ModelSerializer):
     business_address = serializers.CharField(required=False, allow_blank=True, default='')
     postcode = serializers.CharField(required=False, allow_blank=True, default='')
     bio = serializers.CharField(required=False, allow_blank=True, default='')
+    stripe_account_id = serializers.CharField(required=False, allow_blank=True, default='')
 
     class Meta:
         model = ProducerProfile
-        fields = ('business_name', 'business_address', 'postcode', 'bio')
+        fields = ('business_name', 'business_address', 'postcode', 'bio', 'stripe_account_id')
 
     def validate_postcode(self, value):
         if value and value.strip():
