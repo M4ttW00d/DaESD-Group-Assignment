@@ -258,6 +258,12 @@ display: block;
                     value="{{ product.stock_quantity|default:0 }}" min="0" required>
             </div>
 
+            <div class="form-group">
+                <label class="form-label">Low Stock Alert Threshold</label>
+                <input type="number" name="low_stock_threshold" class="form-input"
+                    value="{{ product.low_stock_threshold|default:10 }}" min="0">
+            </div>
+
             <div class="form-group full-width">
                 <label class="form-label">Description</label>
                 <textarea name="description" class="form-textarea">{{ product.description|default:'' }}</textarea>

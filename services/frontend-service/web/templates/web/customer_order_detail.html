@@ -23,9 +23,12 @@
     color: #fff;
 }
 
-.action-buttons{
+.action-buttons {
     margin-top: 2.5rem;
     margin-bottom: 5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 /* -- ORDER HEADER & SUMMARY -- */
@@ -276,8 +279,12 @@
 
     <!-- Actions -->
     <div class="action-buttons">
-        <a href="/" class="btn-secondary" style="text-decoration: none;">← Continue Shopping</a>
-        <a href="/orders/" class="btn-secondary" style="text-decoration: none; margin-left: 1rem;">View All Orders</a>
+        <a href="/orders/" class="btn-secondary" style="text-decoration: none;">← All Orders</a>
+        <form method="post" action="/orders/{{ order.id }}/reorder/">
+            {% csrf_token %}
+            <button type="submit" class="btn-secondary">Reorder</button>
+        </form>
+        <a href="/" class="btn-secondary" style="text-decoration: none;">Continue Shopping</a>
     </div>
 
     {% endif %}

@@ -19,6 +19,7 @@ media/products/*
 !media/products/milk.jpg
 staticfiles/
 *.log
+.env.secure
 
 ############################
 # Virtual environments

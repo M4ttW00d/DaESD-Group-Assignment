@@ -37,7 +37,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = (
             'id', 'producer', 'producer_username', 'producer_profile', 'category', 'name', 'description', 
-            'price', 'current_price', 'is_surplus', 'surplus_deal', 'unit', 'stock_quantity', 'allergens', 'allergen_info', 'is_organic', 
+            'price', 'current_price', 'is_surplus', 'surplus_deal', 'unit', 'stock_quantity', 'low_stock_threshold', 'allergens', 'allergen_info', 'is_organic',
             'is_available', 'harvest_date', 'best_before_date', 
             'seasonal_start_month', 'seasonal_end_month', 'is_currently_in_season',
             'seasonal_availability_text', 'image',

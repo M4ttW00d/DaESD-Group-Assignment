@@ -24,8 +24,10 @@ SECRET_KEY = 'django-insecure-%jg26zl(@1=&5fs(ax(ec_43d_$%i8p9b++n4vqmm(v%&27udp
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get(
+    'ALLOWED_HOSTS',
+    'notifications-api,localhost,127.0.0.1'
+).split(',')
 
 
 # Application definition

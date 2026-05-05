@@ -12,6 +12,7 @@ class Notification(models.Model):
         LOW_STOCK          = 'LOW_STOCK',           'Low Stock'
         OUT_OF_STOCK       = 'OUT_OF_STOCK',        'Out of Stock'
         SURPLUS_DEAL       = 'SURPLUS_DEAL',        'Surplus Deal'
+        SEASONAL_REMINDER  = 'SEASONAL_REMINDER',   'Seasonal Reminder'
         PAYMENT_RECEIVED   = 'PAYMENT_RECEIVED',    'Payment Received'
         SETTLEMENT_READY   = 'SETTLEMENT_READY',    'Settlement Ready'
         GENERAL            = 'GENERAL',             'General'

@@ -40,8 +40,14 @@ urlpatterns = [
     path('orders/', views.customer_order_history_view, name='customer-orders'),
     path('orders/place/', views.create_order, name='create-order'),
     path('orders/customer/<int:order_id>/', views.customer_order_detail_view, name='customer-order-detail'),
+    path('orders/recurring/<int:rec_order_id>/', views.recurring_order_detail_view, name='customer-recurring-order'),
+    path('orders/recurring/<int:rec_order_id>/update/', views.recurring_order_update, name='recurring-order-update'),
+    path('orders/<int:order_id>/reorder/', views.reorder, name='reorder'),
     path('reviews/create/<int:product_id>/', views.write_review_view, name='write_review'),
     path('reviews/<int:review_id>/delete/', views.delete_review_view, name='delete_review'),
+    path('orders/recurring/trigger/', views.trigger_recurring_orders, name='trigger-recurring-orders'),
+    path('orders/recurring/order-date-update/', views.update_recurring_orders_reorder_date, name='update-recurring-orders-reorder-date'),
+    
 
     # Profile, admin and producer
     path('profile/', views.profile_view, name='profile'),
@@ -61,4 +67,12 @@ urlpatterns = [
     
     # Public Producer Profile
     path('producers/<int:producer_id>/', views.producer_public_profile, name='producer_public_profile'),
+
+    # Notifications proxy
+    path('notifications/count/', views.notifications_count_view, name='notifications-count'),
+    path('notifications/', views.notifications_list_view, name='notifications-list'),
+    path('notifications/<int:pk>/read/', views.notifications_mark_read_view, name='notifications-mark-read'),
+    path('notifications/read-all/', views.notifications_mark_all_read_view, name='notifications-mark-all-read'),
+    path('producers/<int:producer_id>/favourite/', views.favourite_toggle_view, name='favourite-toggle'),
+    path('favourites/', views.favourite_list_view, name='favourite-list'),
 ]

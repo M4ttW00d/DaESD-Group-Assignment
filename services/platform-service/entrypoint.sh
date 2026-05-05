@@ -14,7 +14,12 @@ fi
 
 # Run database setup: flush (clean for MVP), migrate, and seed
 # python manage.py flush --no-input
-python manage.py migrate
+if [ "$RUN_MIGRATIONS" = "true" ]; then
+    echo "Running migrations..."
+    python manage.py migrate
+else
+    echo "Skipping migrations..."
+fi
 # python manage.py seed_db
 
 # Hand off execution to the CMD defined in the Dockerfile
