@@ -401,10 +401,15 @@
                 customerFields.classList.add('active');
                 producerFields.classList.remove('active');
                 communityButton.style.display = 'block';
+                communityCheck.checked = false;
             } else {
                 producerFields.classList.add('active');
                 customerFields.classList.remove('active');
                 communityButton.style.display = 'none';
+                communityFields.classList.remove('active');
+                if (radio.value === 'PRODUCER') {
+                    communityCheck.checked = false;
+                }
             }
         });
     });
