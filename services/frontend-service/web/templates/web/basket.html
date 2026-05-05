@@ -3,6 +3,25 @@
 {% block title %}My Basket — BRFN{% endblock %}
 
 {% block extra_styles %}
+.dashboard-header {
+    background: var(--nav-bg);
+    padding: 3rem 0;
+    color: #fff;
+    margin-bottom: 2rem;
+}
+.dashboard-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+.dashboard-title h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
 /* -- BREADCRUMB -- */
 .breadcrumb {
     padding: 1rem 0;
@@ -179,16 +198,6 @@
     display: block;
 }
 
-/* -- BASKET NAME -- */
-.basket-name {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 2.5rem;
-    font-weight: 700;
-    line-height: 1.2;
-    margin-bottom: 0.5rem;
-    color: var(--text);
-}
-
 /* -- EMPTY STATE -- */
 .empty-state {
     grid-column: 1 / -1;
@@ -263,6 +272,7 @@
     font-size: 0.875rem;
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
+    text-decoration: none;
 }
 
 .btn-secondary:hover {
@@ -379,6 +389,16 @@
 {% endblock %}
 
 {% block content %}
+<section class="dashboard-header">
+    <div class="container dashboard-header-inner">
+        <div class="dashboard-title">
+            <h1>Basket</h1>
+            <p>View items in your basket and proceed to checkout.</p>
+        </div>
+        <a href="/" class="btn-secondary" style="color: white; border-color: white;">← Continue Shopping</a>
+    </div>
+</section>
+
 <div class="container">
 
     {% if error %}
@@ -395,8 +415,6 @@
         <span>></span>
         My Basket
     </nav>
-
-    <h1 class="basket-name">My Basket</h1>
 
     {% if basket.items %}
     <div class="results-bar">
@@ -513,7 +531,7 @@
     </div>
     {% endfor %}
 
-    <!-- CHECKOUT SECTION -->
+    <!-- ACTION BUTTONS -->
     <div class="action-wrapper">
         <div class="action-buttons">
             <form method="POST" action="/basket/clear/">
