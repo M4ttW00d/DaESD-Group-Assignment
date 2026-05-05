@@ -492,7 +492,7 @@ def register_view(request):
         if role == 'CUSTOMER':
             form_data['first_name'] = request.POST.get('first_name', '').strip()
             form_data['last_name'] = request.POST.get('last_name', '').strip()
-            form_data['delivery_address'] = request.POST.get('delivery_address', '').strip()
+            form_data['customer_delivery_address'] = request.POST.get('customer_delivery_address', '').strip()
             form_data['customer_postcode'] = request.POST.get('customer_postcode', '').strip()
 
             payload = {
@@ -504,7 +504,7 @@ def register_view(request):
                 'customer_profile': {
                     'first_name': form_data['first_name'],
                     'last_name': form_data['last_name'],
-                    'delivery_address': form_data['delivery_address'],
+                    'delivery_address': form_data['customer_delivery_address'],
                     'postcode': form_data['customer_postcode'],
                 }
             }
@@ -527,10 +527,10 @@ def register_view(request):
                     'bio': form_data['bio'],
                 }
             }
-        else:
+        elif role == 'COMMUNITY-GROUP-REPRESENTATIVE':
             form_data['organization_name'] = request.POST.get('organization_name', '').strip()
             form_data['organization_type'] = request.POST.get('organization_type', '').strip()
-            form_data['delivery_address'] = request.POST.get('delivery_address', '').strip()
+            form_data['community_delivery_address'] = request.POST.get('community_delivery_address', '').strip()
             form_data['community_postcode'] = request.POST.get('community_postcode', '').strip()
 
             payload = {
@@ -542,7 +542,7 @@ def register_view(request):
                 'community_profile': {
                     'organization_name': form_data['organization_name'],
                     'organization_type': form_data['organization_type'],
-                    'delivery_address': form_data['delivery_address'],
+                    'delivery_address': form_data['community_delivery_address'],
                     'postcode': form_data['community_postcode'],
                 }
             }
@@ -766,6 +766,7 @@ def admin_dashboard(request):
     total_producer_payout = total_revenue - total_commission
     customers = [u for u in users if u.get('role') == 'CUSTOMER']
     producers = [u for u in users if u.get('role') == 'PRODUCER']
+    community_group_representatives = [u for u in users if u.get('role') == 'COMMUNITY-GROUP-REPRESENTATIVE']
 
     producer_breakdown = {}
     producer_food_miles = {}
@@ -840,6 +841,7 @@ def admin_dashboard(request):
         'producer_breakdown': producer_breakdown_list,
         'customer_count': len(customers),
         'producer_count': len(producers),
+        'community_group_representative_count': len(community_group_representatives),
         'total_food_miles': round(total_food_miles, 1),
         'producer_food_miles': producer_food_miles_list,
         'media_base_url': MEDIA_BASE_URL,
@@ -1047,7 +1049,7 @@ def admin_edit_user(request, user_id):
             payload['customer_profile'] = {
                 'first_name': request.POST.get('first_name', '').strip(),
                 'last_name': request.POST.get('last_name', '').strip(),
-                'delivery_address': request.POST.get('delivery_address', '').strip(),
+                'delivery_address': request.POST.get('customer_delivery_address', '').strip(),
                 'postcode': request.POST.get('customer_postcode', '').strip(),
             }
         elif role == 'PRODUCER':
@@ -1057,6 +1059,13 @@ def admin_edit_user(request, user_id):
                 'postcode': request.POST.get('producer_postcode', '').strip(),
                 'bio': request.POST.get('bio', '').strip(),
                 'stripe_account_id': request.POST.get('stripe_account_id', '').strip(),
+            }
+        elif role == 'COMMUNITY-GROUP-REPRESENTATIVE':
+            payload['community_profile'] = {
+                'organization_name': request.POST.get('organization_name', '').strip(),
+                'organization_type': request.POST.get('organization_type', '').strip(),
+                'delivery_address': request.POST.get('community_delivery_address', '').strip(),
+                'postcode': request.POST.get('community_postcode', '').strip(),
             }
         try:
             requests.patch(
