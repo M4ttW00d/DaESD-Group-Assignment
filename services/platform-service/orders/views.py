@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from baskets.models import Basket, BasketItem
-from baskets.views import IsCustomer
+from baskets.views import IsCustomerOrCommunityRepresentative
 
 from .models import Order, OrderItem, CustomerOrder, RecurringOrder, RecurringOrderItem
 from .serializers import OrderSerializer, CustomerOrderSerializer, RecurringOrderSerializer
@@ -87,7 +87,7 @@ class OrderCreateView(APIView):
     Handles checkout processing and order placement.
     Creates a highlevel CustomerOrder and splits into separate orders by producer.
     """
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     @transaction.atomic # Transaction atomic decorator is used to rollback all database trasnactions if any of them fail
     def post(self, request):
@@ -400,7 +400,7 @@ class OrderStatusUpdateView(APIView):
         return Response({'success': True, 'status': new_status})
 
 class ReorderView(APIView):
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def post(self, request, pk):
         try:
@@ -452,7 +452,7 @@ class ReorderView(APIView):
         }, status=status.HTTP_200_OK)
 
 class RecurringOrderCreateView(APIView):
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def post(self, request):
         customer_order_id = request.data.get('customer_order_id')
@@ -514,7 +514,7 @@ class RecurringOrderCreateView(APIView):
         }, status=201)
     
 class RecurringOrderListView(APIView):
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def get(self, request):
         recurring_orders = RecurringOrder.objects.filter(
@@ -524,7 +524,7 @@ class RecurringOrderListView(APIView):
         return Response(serializer.data)
 
 class RecurringOrderDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
     serializer_class = RecurringOrderSerializer
 
     def get_queryset(self):
@@ -533,7 +533,7 @@ class RecurringOrderDetailView(generics.RetrieveAPIView):
         ).prefetch_related('items__product')
 
 class RecurringOrderUpdateView(APIView):
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def patch(self, request, pk):
         try:

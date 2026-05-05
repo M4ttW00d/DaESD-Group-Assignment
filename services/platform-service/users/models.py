@@ -17,6 +17,7 @@ class User(AbstractUser):
         ADMIN = "ADMIN", "Admin"
         PRODUCER = "PRODUCER", "Producer"
         CUSTOMER = "CUSTOMER", "Customer"
+        COMMUNITY_GROUP_REPRESENTATIVE = "COMMUNITY-GROUP-REPRESENTATIVE", "Community-group-representative"
 
     groups = models.ManyToManyField(
         "auth.Group",
@@ -66,6 +67,8 @@ class User(AbstractUser):
             self.producer_profile.delete()
         if hasattr(self, 'customer_profile') and self.customer_profile:
             self.customer_profile.delete()
+        if hasattr(self, 'community_group_profile') and self.community_group_profile:
+            self.community_group_profile.delete()
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
@@ -124,6 +127,29 @@ class CustomerProfile(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.last_name}".strip() or self.user.username
 
+class CommunityGroupProfile(models.Model):
+    """
+    Detailed profile information for users with the 'COMMUNITY-GROUP-REPRESENTATIVE' role.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='community_profile')
+    organization_name = models.CharField(max_length=150, blank=True, default='')
+    organization_type = models.CharField(max_length=150, blank=True, default='', help_text="E.g. Educational facility, charity, etc.")
+    delivery_address = models.TextField(blank=True, default='')
+    postcode = models.CharField(max_length=20, blank=True, default='', help_text="Used for Food Miles calculation")
+
+    class Meta:
+        db_table = 'community_group_profiles'
+
+    def delete(self, *args, **kwargs):
+        """Clear PII data from profile on user deletion."""
+        self.organization_name = ""
+        self.organization_type = ""
+        self.delivery_address = ""
+        self.postcode = ""
+        self.save()
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}".strip() or self.user.username
 
 class FavouriteProducer(models.Model):
     customer = models.ForeignKey(

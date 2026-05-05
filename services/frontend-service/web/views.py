@@ -508,7 +508,7 @@ def register_view(request):
                     'postcode': form_data['customer_postcode'],
                 }
             }
-        else:
+        elif role == 'PRODUCER':
             form_data['business_name'] = request.POST.get('business_name', '').strip()
             form_data['business_address'] = request.POST.get('business_address', '').strip()
             form_data['producer_postcode'] = request.POST.get('producer_postcode', '').strip()
@@ -525,6 +525,25 @@ def register_view(request):
                     'business_address': form_data['business_address'],
                     'postcode': form_data['producer_postcode'],
                     'bio': form_data['bio'],
+                }
+            }
+        else:
+            form_data['organization_name'] = request.POST.get('organization_name', '').strip()
+            form_data['organization_type'] = request.POST.get('organization_type', '').strip()
+            form_data['delivery_address'] = request.POST.get('delivery_address', '').strip()
+            form_data['community_postcode'] = request.POST.get('community_postcode', '').strip()
+
+            payload = {
+                'username': form_data['username'],
+                'password': request.POST.get('password', ''),
+                'email': form_data['email'],
+                'phone_number': form_data['phone_number'],
+                'role': 'COMMUNITY-GROUP-REPRESENTATIVE',
+                'community_profile': {
+                    'organization_name': form_data['organization_name'],
+                    'organization_type': form_data['organization_type'],
+                    'delivery_address': form_data['delivery_address'],
+                    'postcode': form_data['community_postcode'],
                 }
             }
 
@@ -599,6 +618,13 @@ def profile_view(request):
                     'business_address': request.POST.get('business_address', '').strip(),
                     'postcode': request.POST.get('postcode', '').strip(),
                     'bio': request.POST.get('bio', '').strip(),
+                }
+            elif role == 'COMMUNITY-GROUP-REPRESENTATIVE':
+                payload['community_profile'] = {
+                    'organization_name': request.POST.get('organization_name', '').strip(),
+                    'organization_type': request.POST.get('organization_type', '').strip(),
+                    'delivery_address': request.POST.get('delivery_address', '').strip(),
+                    'postcode': request.POST.get('postcode', '').strip(),
                 }
             try:
                 resp = requests.patch(

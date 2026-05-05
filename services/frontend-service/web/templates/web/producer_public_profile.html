@@ -23,7 +23,7 @@
         </p>
         {% endif %}
 
-        {% if request.session.role == 'CUSTOMER' %}
+        {% if request.session.role == 'CUSTOMER' or request.session.role == 'COMMUNITY-GROUP-REPRESENTATIVE' %}
         <div style="margin-top: 1.5rem;">
             <button id="fav-btn"
                 data-producer-id="{{ producer.id }}"
