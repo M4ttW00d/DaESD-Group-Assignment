@@ -472,8 +472,9 @@ box-shadow: 0 0 0 3px rgba(44, 95, 46, 0.1);
 .form-textarea {
 resize: vertical;
 min-height: 100px;
+width: 100%;
+box-sizing: border-box;
 }
-
 .checkout-food-miles {
     display: inline-flex;
     align-items: center;
@@ -589,20 +590,19 @@ min-height: 100px;
                     </select>
                 </div>
 
-                <div id="delivery_instructions_{{ producer_group.producer_id }}" style="display:none;" class="form-group">
-                    <label class="form-label">Delivery Address <span class="required">*</span></label>
-                    <textarea 
-                        name="delivery_instructions_{{ producer_group.producer_id }}" 
-                        id="delivery_instructions_input_{{ producer_group.producer_id }}"
-                        class="form-input" 
-                        rows="3" 
-                        placeholder="Enter any special delivery instructions for the producer to see..."></textarea>
-                </div>
-
                 <div class="form-group">
                     <label class="form-label">Delivery / Collection Date<span class="required">*</span></label>
                     <p>Note: a 48-hour lead time must be enforced on all orders to allow producers time to prepare.</p>
                     <input type="date" name="delivery_date_{{ producer_group.producer_id }}" class="form-input" min="{{ minimum_delivery_date }}" required>
+                </div>
+
+                <div id="delivery_instructions_{{ producer_group.producer_id }}" style="display:none;" class="form-group">
+                    <label class="form-label">Special Delivery Instructions (Optional)</label>
+                    <textarea 
+                        name="delivery_instructions_{{ producer_group.producer_id }}" 
+                        id="delivery_instructions_input_{{ producer_group.producer_id }}"
+                        class="form-textarea" 
+                        placeholder="Enter any special delivery instructions for the producer to see."></textarea>
                 </div>
 
             </div>
