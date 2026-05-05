@@ -232,7 +232,7 @@
             </thead>
             <tbody>
                 
-                {% for rec_order in recurring_orders %}
+                {% for rec_order in recurring_orders reversed %}
                 <tr>
                     <td>#{{ rec_order.id }}</td>
                     <td>

@@ -582,11 +582,21 @@ min-height: 100px;
 
                 <div class="form-group">
                     <label class="form-label">Collection Type <span class="required">*</span></label>
-                    <select name="collection_type_{{ producer_group.producer_id }}" class="form-select" required onchange="updateFoodMiles('{{ producer_group.producer_id }}', this.value)">
+                    <select id="collection_type_{{ producer_group.producer_id }}" name="collection_type_{{ producer_group.producer_id }}" class="form-select" required onchange="updateFoodMiles('{{ producer_group.producer_id }}', this.value); toggleDeliveryAddress('{{ producer_group.producer_id }}', this.value, '{{ request.session.role }}')">
                         <option value="">Select delivery or collect from producer</option>
                         <option value="Delivery">Deliver to my address</option>
                         <option value="Collection">Collect from producer</option>
                     </select>
+                </div>
+
+                <div id="delivery_instructions_{{ producer_group.producer_id }}" style="display:none;" class="form-group">
+                    <label class="form-label">Delivery Address <span class="required">*</span></label>
+                    <textarea 
+                        name="delivery_instructions_{{ producer_group.producer_id }}" 
+                        id="delivery_instructions_input_{{ producer_group.producer_id }}"
+                        class="form-input" 
+                        rows="3" 
+                        placeholder="Enter any special delivery instructions for the producer to see..."></textarea>
                 </div>
 
                 <div class="form-group">
@@ -751,6 +761,23 @@ min-height: 100px;
         if (totalEl) {
             totalEl.style.display = hasAny ? 'flex' : 'none';
             totalEl.querySelector('span:last-child').textContent = total.toFixed(1) + ' miles';
+        }
+    }
+
+    function toggleDeliveryAddress(producerId, value, role) {
+        if(role !== "COMMUNITY-GROUP-REPRESENTATIVE"){
+            return;
+        }
+        const instructionsDiv = document.getElementById('delivery_instructions_' + producerId);
+        const instructionsInput = document.getElementById('delivery_instructions_input_' + producerId);
+        
+        if (value === 'Delivery') {
+            instructionsDiv.style.display = 'block';
+            instructionsInput.required = true;
+        } else {
+            instructionsDiv.style.display = 'none';
+            instructionsInput.required = false;
+            instructionsInput.value = '';
         }
     }
 

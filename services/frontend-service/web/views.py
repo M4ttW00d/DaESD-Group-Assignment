@@ -197,6 +197,7 @@ def _finalize_pending_order(request, *, payment_id, session_id, order_reference)
             json={
                 'delivery_dates': pending_checkout.get('delivery_dates', {}),
                 'collection_types': pending_checkout.get('collection_types', {}),
+                'delivery_instructions': pending_checkout.get('delivery_instructions', {}),
             },
             timeout=10
         )
@@ -1637,7 +1638,11 @@ def checkout_view(request):
                         timeout=5
                     )
                     if user_resp.status_code == 200:
-                        customer_postcode = (user_resp.json().get('customer_profile') or {}).get('postcode')
+                        profile_data = user_resp.json()
+                        customer_postcode = (
+                            (profile_data.get('customer_profile') or {}).get('postcode')
+                            or (profile_data.get('community_profile') or {}).get('postcode')
+                        )
                         if customer_postcode:
                             for group in items_by_producer:
                                 producer_postcode = (group.get('producer_profile') or {}).get('postcode')
@@ -1679,6 +1684,7 @@ def create_order(request):
     error = None
     delivery_dates = {}
     collection_types = {}
+    delivery_instructions = {}
 
     for key, value in request.POST.items():
         if key.startswith('delivery_date_'):
@@ -1687,6 +1693,9 @@ def create_order(request):
         elif key.startswith('collection_type_'):
             producer_id = key.replace('collection_type_', '')
             collection_types[producer_id] = value
+        elif key.startswith('delivery_instructions_'):
+            producer_id = key.replace('delivery_instructions_', '')
+            delivery_instructions[producer_id] = value.strip() or None
         
         # Get recurring order details
         make_recurring = request.POST.get('make_recurring') == 'on'
@@ -1719,6 +1728,7 @@ def create_order(request):
     request.session['pending_checkout'] = {
         'delivery_dates': delivery_dates,
         'collection_types': collection_types,
+        'delivery_instructions': delivery_instructions,
         'order_reference': pending_order_reference,
         'make_recurring': make_recurring,
         'order_day': order_day,

@@ -94,6 +94,7 @@ class OrderCreateView(APIView):
         try:
             delivery_dates = request.data.get('delivery_dates', {})
             collection_types = request.data.get('collection_types', {})
+            delivery_instructions = request.data.get('delivery_instructions', {})
             
             # Get customer's basket
             try:
@@ -130,6 +131,7 @@ class OrderCreateView(APIView):
             for producer, producer_basket_items in items_by_producer.items():
                 producer_id = str(producer.id)
                 delivery_date=delivery_dates.get(producer_id)
+                delivery_instruction=delivery_instructions.get(producer_id)
                 
                 try:
                     delivery_date = self._validate_delivery_date(delivery_dates.get(producer_id))
@@ -141,7 +143,10 @@ class OrderCreateView(APIView):
                 food_miles = None
                 if collection_type and 'collect' not in collection_type.lower():
                     try:
-                        customer_postcode = request.user.customer_profile.postcode
+                        customer_postcode = (
+                            getattr(request.user, 'customer_profile', None) and request.user.customer_profile.postcode
+                            or getattr(request.user, 'community_profile', None) and request.user.community_profile.postcode
+                        )
                         producer_postcode = producer.producer_profile.postcode
                         food_miles = _calculate_food_miles(customer_postcode, producer_postcode)
                     except Exception:
@@ -153,6 +158,7 @@ class OrderCreateView(APIView):
                     producer=producer,
                     delivery_date=delivery_date,
                     collection_type=collection_type,
+                    delivery_instruction=delivery_instruction,
                     food_miles=food_miles,
                 )
                 notified_producers.append(producer.id)
