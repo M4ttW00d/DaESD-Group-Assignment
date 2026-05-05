@@ -17,7 +17,44 @@ from django.utils import timezone
 from django.core.management import call_command
 
 import datetime
+import math
 import requests
+
+def _get_postcode_coords(postcode, _cache={}):
+    """Fetch lat/lng for a UK postcode from postcodes.io. Caches results."""
+    if not postcode:
+        return None, None
+    key = postcode.strip().upper().replace(' ', '')
+    if key in _cache:
+        return _cache[key]
+    try:
+        resp = requests.get(
+            f"https://api.postcodes.io/postcodes/{postcode.strip().replace(' ', '%20')}",
+            timeout=5
+        )
+        if resp.status_code == 200:
+            result = resp.json().get('result') or {}
+            coords = result.get('latitude'), result.get('longitude')
+            _cache[key] = coords
+            return coords
+    except Exception:
+        pass
+    _cache[key] = (None, None)
+    return None, None
+
+def _calculate_food_miles(customer_postcode, producer_postcode):
+    """Calculate straight-line distance in miles between two postcodes."""
+    if not customer_postcode or not producer_postcode:
+        return None
+    lat1, lon1 = _get_postcode_coords(customer_postcode)
+    lat2, lon2 = _get_postcode_coords(producer_postcode)
+    if None in (lat1, lon1, lat2, lon2):
+        return None
+    R = 3958.8
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+    return round(R * 2 * math.asin(math.sqrt(a)), 1)
 import os
 
 def calculate_delivery_date(order_date, delivery_day):
@@ -98,13 +135,25 @@ class OrderCreateView(APIView):
                     delivery_date = self._validate_delivery_date(delivery_dates.get(producer_id))
                 except ValueError as e:
                     raise OrderValidationError(str(e))
-                
+
+                # Calculate food miles for delivery orders only
+                collection_type = collection_types.get(producer_id, '')
+                food_miles = None
+                if collection_type and 'collect' not in collection_type.lower():
+                    try:
+                        customer_postcode = request.user.customer_profile.postcode
+                        producer_postcode = producer.producer_profile.postcode
+                        food_miles = _calculate_food_miles(customer_postcode, producer_postcode)
+                    except Exception:
+                        pass
+
                 order = Order.objects.create(
                     customer_order=customer_order,
                     customer=request.user,
                     producer=producer,
                     delivery_date=delivery_date,
-                    collection_type=collection_types.get(producer_id)
+                    collection_type=collection_type,
+                    food_miles=food_miles,
                 )
                 notified_producers.append(producer.id)
                 

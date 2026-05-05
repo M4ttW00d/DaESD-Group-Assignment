@@ -664,30 +664,6 @@ def admin_dashboard(request):
         resp_orders = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=headers, timeout=5)
         if resp_orders.status_code == 200:
             orders = resp_orders.json()
-            # Calculate food miles per DELIVERED delivery order
-            for o in orders:
-                status = (o.get('status') or '').upper()
-                collection_type = (o.get('collection_type') or '').lower()
-                if status == 'DELIVERED' and 'collect' not in collection_type:
-                    try:
-                        items = o.get('items', [])
-                        customer_postcode = o.get('customer_postcode') or (o.get('customer_profile') or {}).get('postcode')
-                        producer_postcode = None
-                        if items:
-                            product_id = items[0].get('product')
-                            if product_id:
-                                prod_resp = requests.get(
-                                    f"{PLATFORM_API_URL}/api/products/{product_id}/",
-                                    timeout=5
-                                )
-                                if prod_resp.status_code == 200:
-                                    producer_postcode = (prod_resp.json().get('producer_profile') or {}).get('postcode')
-                        if customer_postcode and producer_postcode:
-                            miles = _calculate_food_miles(customer_postcode, producer_postcode)
-                            if miles:
-                                o['food_miles'] = miles
-                    except Exception:
-                        pass
 
     except requests.exceptions.ConnectionError:
         error = "Cannot reach the platform API. Please check the service is running."
@@ -719,7 +695,7 @@ def admin_dashboard(request):
         status = (o.get('status') or '').upper()
         collection_type = (o.get('collection_type') or '').lower()
         if status == 'DELIVERED' and 'collect' not in collection_type:
-            miles = o.get('food_miles')
+            miles = float(o.get('food_miles') or 0)
             if miles:
                 total_food_miles += miles
                 if producer not in producer_food_miles:
@@ -1572,40 +1548,16 @@ def customer_order_history_view(request):
         )
         if resp_orders.status_code == 200:
             orders = resp_orders.json()
-            # Calculate food miles for DELIVERED delivery orders only
-            try:
-                user_resp = requests.get(
-                    f"{PLATFORM_API_URL}/api/auth/me/",
-                    headers=get_auth_headers(request),
-                    timeout=5
+            # Food miles stored on each producer order — read directly from DB
+            for order in orders:
+                order_miles = sum(
+                    float(po.get('food_miles') or 0)
+                    for po in (order.get('orders') or [])
+                    if po.get('food_miles')
                 )
-                if user_resp.status_code == 200:
-                    customer_postcode = (user_resp.json().get('customer_profile') or {}).get('postcode')
-                    if customer_postcode and orders:
-                        for order in orders:
-                            order_miles = 0
-                            for producer_order in (order.get('orders') or []):
-                                status = (producer_order.get('status') or '').upper()
-                                collection_type = (producer_order.get('collection_type') or '').lower()
-                                if status == 'DELIVERED' and 'collect' not in collection_type:
-                                    items = producer_order.get('items', [])
-                                    if items:
-                                        product_id = items[0].get('product')
-                                        if product_id:
-                                            prod_resp = requests.get(
-                                                f"{PLATFORM_API_URL}/api/products/{product_id}/",
-                                                timeout=5
-                                            )
-                                            if prod_resp.status_code == 200:
-                                                producer_postcode = (prod_resp.json().get('producer_profile') or {}).get('postcode')
-                                                miles = _calculate_food_miles(customer_postcode, producer_postcode)
-                                                if miles:
-                                                    order_miles += miles
-                            if order_miles:
-                                order['food_miles'] = round(order_miles, 1)
-                                total_food_miles += order_miles
-            except Exception:
-                pass
+                if order_miles:
+                    order['food_miles'] = round(order_miles, 1)
+                    total_food_miles += order_miles
 
         elif resp_orders.status_code == 401:
             request.session.flush()
@@ -1839,39 +1791,14 @@ def customer_order_detail_view(request, order_id):
         if resp.status_code == 200:
             order = resp.json()
 
-            try:
-                user_resp = requests.get(
-                    f"{PLATFORM_API_URL}/api/auth/me/",
-                    headers=get_auth_headers(request),
-                    timeout=5
+            # Food miles stored on each producer order - just sum them up
+            if order.get('orders'):
+                total_miles = sum(
+                    float(po.get('food_miles') or 0)
+                    for po in order['orders']
+                    if po.get('food_miles')
                 )
-                if user_resp.status_code == 200:
-                    customer_postcode = (user_resp.json().get('customer_profile') or {}).get('postcode')
-                    if customer_postcode and order.get('orders'):
-                        total_miles = 0
-                        for producer_order in order['orders']:
-                            collection_type = (producer_order.get('collection_type') or '').lower()
-                            if 'collect' in collection_type:
-                                producer_order['food_miles'] = 0
-                            else:
-                                producer_postcode = None
-                                items = producer_order.get('items', [])
-                                if items:
-                                    product_id = items[0].get('product')
-                                    if product_id:
-                                        prod_resp = requests.get(
-                                            f"{PLATFORM_API_URL}/api/products/{product_id}/",
-                                            timeout=5
-                                        )
-                                        if prod_resp.status_code == 200:
-                                            producer_postcode = (prod_resp.json().get('producer_profile') or {}).get('postcode')
-                                miles = _calculate_food_miles(customer_postcode, producer_postcode) if producer_postcode else None
-                                producer_order['food_miles'] = miles
-                                if miles:
-                                    total_miles += miles
-                        order['total_food_miles'] = round(total_miles, 1)
-            except Exception:
-                pass
+                order['total_food_miles'] = round(total_miles, 1)
 
         elif resp.status_code == 404:
             error = "Order not found."
@@ -1959,35 +1886,11 @@ def producer_orders_view(request):
         resp = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=get_auth_headers(request), timeout=5)
         if resp.status_code == 200:
             orders = resp.json()
-            # Calculate food miles for DELIVERED delivery orders only
-            try:
-                for order in orders:
-                    status = (order.get('status') or '').upper()
-                    collection_type = (order.get('collection_type') or '').lower()
-                    if status == 'DELIVERED' and 'collect' not in collection_type:
-                        items = order.get('items', [])
-                        customer_postcode = order.get('customer_postcode')
-                        if not customer_postcode and items:
-                            # Try to get customer postcode from order data
-                            customer_postcode = (order.get('customer_profile') or {}).get('postcode')
-                        producer_postcode = None
-                        if items:
-                            product_id = items[0].get('product')
-                            if product_id:
-                                prod_resp = requests.get(
-                                    f"{PLATFORM_API_URL}/api/products/{product_id}/",
-                                    headers=get_auth_headers(request),
-                                    timeout=5
-                                )
-                                if prod_resp.status_code == 200:
-                                    producer_postcode = (prod_resp.json().get('producer_profile') or {}).get('postcode')
-                        if customer_postcode and producer_postcode:
-                            miles = _calculate_food_miles(customer_postcode, producer_postcode)
-                            if miles:
-                                order['food_miles'] = miles
-                                total_food_miles += miles
-            except Exception:
-                pass
+            # Food miles stored on order - just read directly
+            for order in orders:
+                miles = float(order.get('food_miles') or 0)
+                if miles:
+                    total_food_miles += miles
         elif resp.status_code == 401:
             request.session.flush()
             return redirect('/login/')
