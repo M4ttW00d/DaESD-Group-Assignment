@@ -40,13 +40,13 @@ urlpatterns = [
     path('orders/', views.customer_order_history_view, name='customer-orders'),
     path('orders/place/', views.create_order, name='create-order'),
     path('orders/customer/<int:order_id>/', views.customer_order_detail_view, name='customer-order-detail'),
-    path('orders/recurring/<int:rec_order_id>/', views.recurring_order_detail_view, name='customer-recurring-order'),
-    path('orders/recurring/<int:rec_order_id>/update/', views.recurring_order_update, name='recurring-order-update'),
-    path('orders/<int:order_id>/reorder/', views.reorder, name='reorder'),
+    # TODO: restore when view is added — path('orders/recurring/<int:rec_order_id>/', views.recurring_order_detail_view, name='customer-recurring-order'),
+    # TODO: restore when view is added — path('orders/recurring/<int:rec_order_id>/update/', views.recurring_order_update, name='recurring-order-update'),
+    # TODO: restore when view is added — path('orders/<int:order_id>/reorder/', views.reorder, name='reorder'),
     path('reviews/create/<int:product_id>/', views.write_review_view, name='write_review'),
     path('reviews/<int:review_id>/delete/', views.delete_review_view, name='delete_review'),
-    path('orders/recurring/trigger/', views.trigger_recurring_orders, name='trigger-recurring-orders'),
-    path('orders/recurring/order-date-update/', views.update_recurring_orders_reorder_date, name='update-recurring-orders-reorder-date'),
+    # TODO: restore when view is added — path('orders/recurring/trigger/', views.trigger_recurring_orders, name='trigger-recurring-orders'),
+    # TODO: restore when view is added — path('orders/recurring/order-date-update/', views.update_recurring_orders_reorder_date, name='update-recurring-orders-reorder-date'),
     
 
     # Profile, admin and producer

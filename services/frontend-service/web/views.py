@@ -926,9 +926,10 @@ def add_product_view(request):
             form_data['seasonal_start_month'] = ''
             form_data['seasonal_end_month'] = ''
 
-        for key in ['seasonal_start_month', 'seasonal_end_month', 'harvest_date', 'best_before_date', 'unit', 'allergen_info', 'description']:
+        for key in ['harvest_date', 'best_before_date', 'unit', 'allergen_info', 'description']:
             if not form_data.get(key):
                 form_data.pop(key, None)
+        # seasonal months intentionally kept as '' — serializer converts to None to clear DB fields
 
         allergens = request.POST.getlist('allergens')
         form_data['allergens'] = json.dumps(allergens)
@@ -1037,9 +1038,10 @@ def edit_product_view(request, product_id):
             form_data['seasonal_start_month'] = ''
             form_data['seasonal_end_month'] = ''
 
-        for key in ['seasonal_start_month', 'seasonal_end_month', 'harvest_date', 'best_before_date', 'unit', 'allergen_info', 'description']:
+        for key in ['harvest_date', 'best_before_date', 'unit', 'allergen_info', 'description']:
             if not form_data.get(key):
                 form_data.pop(key, None)
+        # seasonal months intentionally kept as '' — serializer converts to None to clear DB fields
 
         allergens = request.POST.getlist('allergens')
         form_data['allergens'] = json.dumps(allergens)
