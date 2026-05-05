@@ -34,19 +34,21 @@ class OrderSerializer(serializers.ModelSerializer):
     
     # Producer Details
     producer_name = serializers.CharField(source='producer.producer_profile.business_name', read_only=True)
-    
+    producer_id = serializers.IntegerField(source='producer.id', read_only=True, default=None)
+
     # Producer specific total
     producer_total = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = (
-            'id', 'customer', 'customer_username', 'customer_postcode', 'customer_first_name', 'customer_last_name',
+            'id', 'customer_order', 'customer', 'customer_username', 'customer_postcode',
+            'customer_first_name', 'customer_last_name',
             'customer_phone', 'customer_email', 'delivery_address', 'collection_type',
-            'total_amount', 'commission_total', 'producer_name', 'producer_total',
+            'total_amount', 'commission_total', 'producer_id', 'producer_name', 'producer_total',
             'status', 'status_logs', 'delivery_date', 'food_miles', 'created_at', 'items'
         )
-        read_only_fields = ('id', 'customer', 'total_amount', 'commission_total', 'created_at', 'items', 'producer_total', 'status_logs')
+        read_only_fields = ('id', 'customer_order', 'customer', 'total_amount', 'commission_total', 'created_at', 'items', 'producer_total', 'status_logs')
 
     def get_items(self, obj):
         request = self.context.get('request')

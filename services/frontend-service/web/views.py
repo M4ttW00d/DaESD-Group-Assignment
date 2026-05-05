@@ -773,6 +773,32 @@ def admin_dashboard(request):
         key=lambda x: x['miles'], reverse=True
     )
 
+    # Fetch settlement history and any unsettled payment count
+    settlements = []
+    settlement_error = None
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            resp_s = requests.get(f"{base_url}/payments/api/settlements/", timeout=8)
+            if resp_s.status_code == 200:
+                settlements = resp_s.json().get('settlements', [])
+                break
+        except Exception:
+            continue
+
+    unsettled_count = 0
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            resp_u = requests.get(f"{base_url}/payments/api/unsettled/", timeout=8)
+            if resp_u.status_code == 200:
+                unsettled_count = len(resp_u.json().get('payments', []))
+                break
+        except Exception:
+            continue
+
+    settlement_message = request.GET.get('settlement_msg', '')
+    if not settlement_message:
+        settlement_error = request.GET.get('settlement_error', '')
+
     return render(request, 'web/admin.html', {
         'users': users,
         'products': products,
@@ -791,15 +817,138 @@ def admin_dashboard(request):
         'total_food_miles': round(total_food_miles, 1),
         'producer_food_miles': producer_food_miles_list,
         'media_base_url': MEDIA_BASE_URL,
+        'settlements': settlements,
+        'settlement_message': settlement_message,
+        'settlement_error': settlement_error,
+        'unsettled_count': unsettled_count,
     })
+
+
+def admin_run_weekly_settlement(request):
+    """Compile outstanding paid transactions into a settlement and send to payment-gateway."""
+    if not request.session.get('token') or request.session.get('role') != 'ADMIN':
+        return redirect('/login/')
+    if request.method != 'POST':
+        return redirect('/admin-dashboard/')
+
+    headers = get_auth_headers(request)
+
+    # 1. Get unsettled successful payments from payment-gateway
+    unsettled_payments = []
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            resp = requests.get(f"{base_url}/payments/api/unsettled/", timeout=10)
+            if resp.status_code == 200:
+                unsettled_payments = resp.json().get('payments', [])
+                break
+        except Exception:
+            continue
+
+    if not unsettled_payments:
+        return redirect('/admin-dashboard/?settlement_msg=No+outstanding+paid+transactions+to+settle')
+
+    # 2. Fetch all platform orders (each has customer_order FK + producer info)
+    all_orders = []
+    try:
+        resp_o = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=headers, timeout=10)
+        if resp_o.status_code == 200:
+            all_orders = resp_o.json()
+    except Exception:
+        pass
+
+    # 3. Fetch users to build producer stripe_account_id lookup
+    all_users = []
+    try:
+        resp_u = requests.get(f"{PLATFORM_API_URL}/api/auth/users/", headers=headers, timeout=5)
+        if resp_u.status_code == 200:
+            all_users = resp_u.json()
+    except Exception:
+        pass
+
+    producer_stripe_map = {}
+    for u in all_users:
+        if u.get('role') == 'PRODUCER':
+            profile = u.get('producer_profile') or {}
+            producer_stripe_map[str(u['id'])] = {
+                'producer_name': profile.get('business_name') or u.get('username', ''),
+                'stripe_account_id': profile.get('stripe_account_id', ''),
+            }
+
+    # 4. Build set of CustomerOrder IDs covered by unsettled payments
+    unsettled_order_ids = {str(p['order_id']) for p in unsettled_payments if p.get('order_id')}
+    payment_ids = [p['payment_id'] for p in unsettled_payments]
+
+    # 5. Compile per-producer totals using platform orders
+    producer_totals = {}
+    for o in all_orders:
+        co_id = str(o.get('customer_order', '') or '')
+        if not co_id or co_id not in unsettled_order_ids:
+            continue
+        producer_id = str(o.get('producer_id') or o.get('producer') or '')
+        if not producer_id:
+            continue
+        total = float(o.get('total_amount', 0) or 0)
+        commission = float(o.get('commission_total', 0) or 0)
+        payout = total - commission  # 95%
+        if producer_id not in producer_totals:
+            info = producer_stripe_map.get(producer_id, {})
+            producer_totals[producer_id] = {
+                'producer_id': producer_id,
+                'producer_name': info.get('producer_name') or f'Producer {producer_id}',
+                'stripe_account_id': info.get('stripe_account_id', ''),
+                'amount': 0.0,
+            }
+        producer_totals[producer_id]['amount'] += payout
+
+    if not producer_totals:
+        return redirect(
+            '/admin-dashboard/?settlement_error=' +
+            quote('Could not match paid transactions to any platform orders. Ensure order IDs match.')
+        )
+
+    # 6. POST compiled settlement to payment-gateway
+    settlement_payload = {
+        'payment_ids': payment_ids,
+        'producers': [
+            {**v, 'amount': str(round(v['amount'], 2))}
+            for v in producer_totals.values()
+        ],
+    }
+
+    settlement_resp = None
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            settlement_resp = requests.post(
+                f"{base_url}/payments/api/settlements/run/",
+                json=settlement_payload,
+                timeout=30,
+            )
+            break
+        except Exception:
+            continue
+
+    if settlement_resp and settlement_resp.status_code == 200:
+        data = settlement_resp.json()
+        msg = quote(f"Settlement #{data.get('settlement_id')} completed — £{data.get('total_amount')} across {data.get('producer_count')} producer(s)")
+        return redirect(f'/admin-dashboard/?settlement_msg={msg}')
+
+    err = 'Settlement failed — could not reach payment gateway'
+    if settlement_resp:
+        err = f'Settlement failed (status {settlement_resp.status_code})'
+        try:
+            details = settlement_resp.json().get('error', '')
+            if details:
+                err = f'{err}: {details}'
+        except Exception:
+            if settlement_resp.text:
+                err = f'{err}: {settlement_resp.text[:180]}'
+    return redirect(f'/admin-dashboard/?settlement_error={quote(err)}')
 
 
 def admin_commission_export(request):
     """Export commission data as CSV."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
-
-    headers = get_auth_headers(request)
     orders = []
 
     try:
@@ -881,6 +1030,7 @@ def admin_edit_user(request, user_id):
                 'business_address': request.POST.get('business_address', '').strip(),
                 'postcode': request.POST.get('producer_postcode', '').strip(),
                 'bio': request.POST.get('bio', '').strip(),
+                'stripe_account_id': request.POST.get('stripe_account_id', '').strip(),
             }
         try:
             requests.patch(
@@ -916,6 +1066,10 @@ def producer_dashboard(request):
     products = []
     error = None
     username = request.session.get('username')
+    producer_id = str(request.session.get('user_id') or '')
+    payouts = []
+    payout_total = 0.0
+    transferred_count = 0
 
     try:
         resp = requests.get(
@@ -933,10 +1087,46 @@ def producer_dashboard(request):
     except Exception as e:
         error = f"Unexpected error: {str(e)}"
 
+    # Read settlement history from payment gateway and show only this producer's rows.
+    if producer_id:
+        settlements = []
+        for base_url in _candidate_payment_gateway_api_bases():
+            try:
+                settlement_resp = requests.get(f"{base_url}/payments/api/settlements/", timeout=8)
+                if settlement_resp.status_code == 200:
+                    settlements = settlement_resp.json().get('settlements', [])
+                    break
+            except Exception:
+                continue
+
+        for settlement in settlements:
+            for row in settlement.get('producers', []) or []:
+                if str(row.get('producer_id') or '') != producer_id:
+                    continue
+                amount = float(row.get('amount') or 0)
+                payout_total += amount
+                if row.get('status') == 'TRANSFERRED':
+                    transferred_count += 1
+                payouts.append({
+                    'settlement_id': settlement.get('id'),
+                    'created_at': settlement.get('created_at', ''),
+                    'week_start': settlement.get('week_start', ''),
+                    'week_end': settlement.get('week_end', ''),
+                    'amount': amount,
+                    'status': row.get('status', ''),
+                    'transfer_id': row.get('transfer_id', ''),
+                    'error_message': row.get('error_message', ''),
+                })
+
+        payouts.sort(key=lambda r: (r.get('created_at') or ''), reverse=True)
+
     return render(request, 'web/dashboard.html', {
         'products': products,
         'error': error,
         'media_base_url': MEDIA_BASE_URL,
+        'payouts': payouts,
+        'payout_total': payout_total,
+        'transferred_count': transferred_count,
     })
 
 

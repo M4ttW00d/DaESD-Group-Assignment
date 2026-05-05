@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from urllib.parse import urlencode
 
@@ -17,7 +17,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Payment
+from .models import Payment, ProducerSettlement, WeeklySettlement
 
 
 class CheckoutError(Exception):
@@ -156,6 +156,166 @@ def list_transactions(request):
     except Exception as exc:
         logger.exception('Unexpected error in list_transactions')
         return JsonResponse({'error': f'Unexpected error: {type(exc).__name__}: {exc}'}, status=500)
+
+
+def list_unsettled_payments(request):
+    """Return successful local Payment records that have not yet been included in a settlement."""
+    if request.method != 'GET':
+        return HttpResponseNotAllowed(['GET'])
+    payments = Payment.objects.filter(status='SUCCESS', settled=False)
+    return JsonResponse({'payments': [
+        {
+            'payment_id': p.id,
+            'order_id': p.order_id,
+            'amount': str(p.amount),
+            'currency': p.currency,
+            'stripe_session_id': p.stripe_session_id or '',
+            'created_at': p.created_at.isoformat(),
+        }
+        for p in payments
+    ]})
+
+
+@csrf_exempt
+def run_settlement(request):
+    """Receive compiled per-producer settlement data, record it and attempt Stripe transfers."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    payment_ids = body.get('payment_ids') or []
+    producers_data = body.get('producers') or []
+
+    if not producers_data:
+        return JsonResponse({'error': 'No producers provided'}, status=400)
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())  # Monday of current week
+    total_amount = sum(Decimal(str(p.get('amount', '0') or '0')) for p in producers_data)
+
+    settlement = WeeklySettlement.objects.create(
+        week_start=week_start,
+        week_end=today,
+        total_amount=total_amount,
+        status='PENDING',
+    )
+
+    producer_records = []
+    for p in producers_data:
+        amount = Decimal(str(p.get('amount', '0') or '0'))
+        stripe_account_id = (p.get('stripe_account_id') or '').strip()
+        transfer_id = ''
+        status = 'PENDING'
+        error_message = ''
+
+        if not stripe_account_id:
+            status = 'SKIPPED'
+            error_message = 'No Stripe connected account ID set for this producer'
+        elif not _stripe_is_configured():
+            status = 'SKIPPED'
+            error_message = 'Stripe secret key not configured'
+        else:
+            try:
+                _require_stripe()
+                stripe.api_key = settings.STRIPE_SECRET_KEY
+                transfer = stripe.Transfer.create(
+                    amount=int(amount * 100),  # convert to pence
+                    currency='gbp',
+                    destination=stripe_account_id,
+                    description=f'BRFN weekly settlement {week_start} to {today}',
+                    metadata={
+                        'settlement_id': str(settlement.id),
+                        'producer_id': str(p.get('producer_id', '')),
+                        'producer_name': p.get('producer_name', ''),
+                    },
+                )
+                transfer_id = transfer.id
+                status = 'TRANSFERRED'
+            except Exception as exc:
+                error_message = str(exc)
+                status = 'FAILED'
+
+        ps = ProducerSettlement.objects.create(
+            settlement=settlement,
+            producer_id=str(p.get('producer_id', '')),
+            producer_name=p.get('producer_name', ''),
+            stripe_account_id=stripe_account_id,
+            amount=amount,
+            transfer_id=transfer_id,
+            status=status,
+            error_message=error_message,
+        )
+        producer_records.append(ps)
+
+    # Mark payments as settled
+    if payment_ids:
+        Payment.objects.filter(pk__in=payment_ids).update(settled=True)
+
+    # Update overall settlement status
+    statuses = {ps.status for ps in producer_records}
+    if all(s in ('TRANSFERRED', 'SKIPPED') for s in statuses):
+        settlement.status = 'COMPLETED'
+    elif any(s == 'FAILED' for s in statuses):
+        settlement.status = 'FAILED'
+    else:
+        settlement.status = 'COMPLETED'
+    settlement.save(update_fields=['status'])
+
+    return JsonResponse({
+        'settlement_id': settlement.id,
+        'status': settlement.status,
+        'total_amount': str(settlement.total_amount),
+        'producer_count': len(producer_records),
+        'producers': [
+            {
+                'producer_id': ps.producer_id,
+                'producer_name': ps.producer_name,
+                'amount': str(ps.amount),
+                'status': ps.status,
+                'transfer_id': ps.transfer_id,
+                'error_message': ps.error_message,
+            }
+            for ps in producer_records
+        ],
+    })
+
+
+def list_settlements(request):
+    """List all recorded weekly settlements."""
+    if request.method != 'GET':
+        return HttpResponseNotAllowed(['GET'])
+
+    settlements = (
+        WeeklySettlement.objects
+        .prefetch_related('producer_settlements')
+        .order_by('-created_at')
+    )
+    return JsonResponse({'settlements': [
+        {
+            'id': s.id,
+            'week_start': str(s.week_start),
+            'week_end': str(s.week_end),
+            'total_amount': str(s.total_amount),
+            'status': s.status,
+            'created_at': s.created_at.isoformat(),
+            'producers': [
+                {
+                    'producer_id': ps.producer_id,
+                    'producer_name': ps.producer_name,
+                    'amount': str(ps.amount),
+                    'status': ps.status,
+                    'transfer_id': ps.transfer_id,
+                    'error_message': ps.error_message,
+                }
+                for ps in s.producer_settlements.all()
+            ],
+        }
+        for s in settlements
+    ]})
 
 
 def payment_status(request):
