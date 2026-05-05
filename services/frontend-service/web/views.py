@@ -2216,7 +2216,7 @@ def producer_orders_view(request):
             orders = resp.json()
             # Calculate food miles for DELIVERED delivery orders only
             try:
-                for orders in orders:
+                for order in orders:
                     status = (order.get('status') or '').upper()
                     collection_type = (order.get('collection_type') or '').lower()
                     if status == 'DELIVERED' and 'collect' not in collection_type:
