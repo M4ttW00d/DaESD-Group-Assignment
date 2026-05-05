@@ -5,7 +5,7 @@ from django.utils import timezone
 from products.models import Product
 
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
-SERVICE_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'change-this-secret-key-for-jwt-tokens')
+SERVICE_SECRET_KEY = os.environ.get('NOTIFICATIONS_API_SECRET_KEY') or os.environ.get('JWT_SECRET_KEY', 'change-this-secret')
 
 
 class Command(BaseCommand):

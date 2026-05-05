@@ -639,6 +639,21 @@
 
         .notif-mark-all-btn:hover { color: #1a7a42; text-decoration: underline; }
 
+        .notif-footer {
+            border-top: 1px solid var(--border);
+            padding: 8px 14px;
+            text-align: center;
+        }
+
+        .notif-footer a {
+            font-size: 0.78rem;
+            color: #00622e;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .notif-footer a:hover { text-decoration: underline; }
+
         .notif-list {
             max-height: 340px;
             overflow-y: auto;
@@ -755,6 +770,9 @@
                 <div class="notif-list" id="notif-list">
                     <div class="notif-empty">Loading…</div>
                 </div>
+                <div class="notif-footer">
+                    <a href="/notifications/">View all notifications</a>
+                </div>
             </div>
         </li>
         <li><a href="/logout/">Sign Out</a></li>
@@ -773,6 +791,9 @@
                 </div>
                 <div class="notif-list" id="notif-list">
                     <div class="notif-empty">Loading…</div>
+                </div>
+                <div class="notif-footer">
+                    <a href="/notifications/">View all notifications</a>
                 </div>
             </div>
         </li>
@@ -953,7 +974,7 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
 
     function fetchList() {
         listEl.innerHTML = '<div class="notif-empty">Loading…</div>';
-        fetch('/notifications/')
+        fetch('/notifications/list/')
             .then(function(r){ return r.json(); })
             .then(function(items) {
                 if (!items || items.length === 0) {
@@ -965,17 +986,20 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
                     var div = document.createElement('div');
                     div.className = 'notif-item' + (n.is_read ? '' : ' unread');
                     div.dataset.pk = n.id;
+                    var safeMsg = (n.message || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\n/g, '<br>');
                     div.innerHTML =
                         '<span class="notif-dot" aria-hidden="true"></span>' +
                         '<div class="notif-body">' +
                             '<div class="notif-title">' + (n.title || n.notification_type || 'Notification') + '</div>' +
-                            '<div class="notif-msg">' + (n.message || '') + '</div>' +
+                            '<div class="notif-msg">' + safeMsg + '</div>' +
                             '<div class="notif-time">' + relativeTime(n.created_at) + '</div>' +
                         '</div>';
                     div.addEventListener('click', function() {
-                        if (!n.is_read) {
-                            markRead(n.id, div);
-                        }
+                        window.location.href = '/notifications/?highlight=' + n.id;
                     });
                     listEl.appendChild(div);
                 });
@@ -1035,6 +1059,5 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
 </script>
 {% endif %}
 
-    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

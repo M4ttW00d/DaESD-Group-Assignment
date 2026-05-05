@@ -33,6 +33,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - PLATFORM_API_URL=${PLATFORM_API_URL}
       - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
+      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
     depends_on:
       db:
         condition: service_healthy
@@ -59,6 +60,7 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - PLATFORM_API_URL=${PLATFORM_API_URL}
       - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
+      - SITE_URL=${SITE_URL:-http://localhost:8000}
     depends_on:
       db:
         condition: service_healthy
@@ -82,6 +84,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
+      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
       - PAYMENT_GATEWAY_URL=${PAYMENT_GATEWAY_URL}
     volumes:
       - ./services/platform-service:/code
@@ -89,44 +92,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - brfn-network
-
-  seasonal-scheduler:
-    build: ./services/platform-service
-    container_name: brfn_seasonal_scheduler
-    command: >
-      sh -c "
-        echo 'Seasonal scheduler started';
-        while true; do
-          DAY=$(date +%d);
-          HOUR=$(date +%H);
-          if [ \"$$DAY\" = '01' ] && [ \"$$HOUR\" = '08' ]; then
-            echo '[scheduler] Running send_seasonal_reminders...';
-            python manage.py send_seasonal_reminders;
-            sleep 3600;
-          else
-            sleep 1800;
-          fi
-        done
-      "
-    volumes:
-      - ./services/platform-service:/code
-    environment:
-      - RUN_MIGRATIONS=false
-      - DB_HOST=${DB_HOST}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DEBUG=${DEBUG}
-      - SECRET_KEY=${SECRET_KEY}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
-    depends_on:
-      db:
-        condition: service_healthy
-      notifications-api:
-        condition: service_started
     networks:
       - brfn-network
 
@@ -158,8 +123,8 @@ services:
     build: ./services/platform-service
     container_name: brfn_platform_cron
     command: >
-      sh -c "printenv | grep -E '^(DB_|SECRET_KEY|JWT_SECRET_KEY|NOTIFICATIONS_API_URL|PAYMENT_GATEWAY_URL)' > /etc/environment &&
-            echo '* * * * * cd /code && /usr/local/bin/python3 manage.py process_recurring_orders >> /var/log/cron.log 2>&1' | crontab - &&
+      sh -c "printenv | grep -E '^(DB_|SECRET_KEY|JWT_SECRET_KEY|NOTIFICATIONS_API_URL|NOTIFICATIONS_API_SECRET_KEY|PAYMENT_GATEWAY_URL)' > /etc/environment &&
+            { echo '* * * * * cd /code && /usr/local/bin/python3 manage.py process_recurring_orders >> /var/log/cron.log 2>&1'; echo '0 8 * * * cd /code && /usr/local/bin/python3 manage.py send_recurring_order_reminders >> /var/log/cron.log 2>&1'; echo '0 8 1 * * cd /code && /usr/local/bin/python3 manage.py send_seasonal_reminders >> /var/log/cron.log 2>&1'; } | crontab - &&
             cron -f"
     environment:
       - DB_HOST=${DB_HOST}
@@ -170,6 +135,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
+      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
       - PAYMENT_GATEWAY_URL=${PAYMENT_GATEWAY_URL}
     volumes:
       - ./services/platform-service:/code

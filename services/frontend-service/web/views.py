@@ -8,17 +8,14 @@ from urllib.parse import quote
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 
-# Base URL of the platform API service — no trailing slash, no /api suffix
 PLATFORM_API_URL = os.environ.get('PLATFORM_API_URL', 'http://platform-api:8002')
 
-# Used by the browser to load product images served by the platform service.
 MEDIA_BASE_URL = os.environ.get('MEDIA_BASE_URL', 'http://localhost:8002')
 PAYMENT_GATEWAY_URL = os.environ.get('PAYMENT_GATEWAY_URL', 'http://payment-gateway:8003')
 PAYMENT_GATEWAY_API_URL = os.environ.get('PAYMENT_GATEWAY_API_URL', PAYMENT_GATEWAY_URL).rstrip('/')
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
 
 def _get_postcode_coords(postcode):
-    """Fetch lat/lng for a UK postcode from postcodes.io. Returns (lat, lng) or (None, None)."""
     try:
         resp = requests.get(
             f"https://api.postcodes.io/postcodes/{postcode.strip().replace(' ', '%20')}",
@@ -33,7 +30,6 @@ def _get_postcode_coords(postcode):
     return None, None
 
 def _haversine_miles(lat1, lon1, lat2, lon2):
-    """Calculate straight-line distance in miles between two lat/lng points."""
     R = 3958.8
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1
@@ -42,7 +38,6 @@ def _haversine_miles(lat1, lon1, lat2, lon2):
     return R * 2 * math.asin(math.sqrt(a))
 
 def _calculate_food_miles(customer_postcode, producer_postcode):
-    """Returns distance in miles as a float, or None if postcodes can't be resolved."""
     if not customer_postcode or not producer_postcode:
         return None
     lat1, lon1 = _get_postcode_coords(customer_postcode)
@@ -51,7 +46,6 @@ def _calculate_food_miles(customer_postcode, producer_postcode):
         return None
     return round(_haversine_miles(lat1, lon1, lat2, lon2), 1)
 
-# UK 14 Major Allergens
 UK_ALLERGENS = [
     'Celery', 'Cereals containing gluten', 'Crustaceans', 'Eggs',
     'Fish', 'Lupin', 'Milk', 'Molluscs', 'Mustard', 'Tree nuts',
@@ -59,7 +53,6 @@ UK_ALLERGENS = [
 ]
 
 def get_auth_headers(request):
-    """Helper method to build authorization headers from session token."""
     token = request.session.get('token')
     if token:
         return {'Authorization': f'Bearer {token}'}
@@ -149,14 +142,6 @@ def _extract_error_from_response(response, default_message):
 
 
 def _send_payment_notifications(request, order):
-    """
-    Fires payment confirmation notifications after a successful Stripe payment.
-    Called once per order (guarded by session flag in the caller).
-    Sends:
-      - PAYMENT_RECEIVED  → customer (payment success confirmation)
-      - ORDER_SUMMARY     → customer (itemised order breakdown)
-      - PAYMENT_RECEIVED  → each producer (their sub-order confirmed)
-    """
     sub_orders     = order.get('orders', [])
     total_amount   = order.get('total_amount', '0.00')
     customer_order_id = order.get('id', '')
@@ -166,7 +151,6 @@ def _send_payment_notifications(request, order):
     if not customer_id:
         return
 
-    # Build itemised summary for the customer order confirmation email
     summary_lines = []
     for sub in sub_orders:
         producer_name = sub.get('producer_name') or 'Producer'
@@ -175,13 +159,13 @@ def _send_payment_notifications(request, order):
             name  = item.get('product_name', 'Item')
             qty   = item.get('quantity', 1)
             price = item.get('price_at_sale', '0.00')
-            summary_lines.append(f"  • {name} x{qty} — £{price}")
+            summary_lines.append(f"\n  • {name} x{qty} — £{price}")
         collection = sub.get('collection_type', '')
         delivery   = sub.get('delivery_date', '')
         if collection:
-            summary_lines.append(f"  Collection: {collection}")
+            summary_lines.append(f"\n  Collection: {collection}")
         if delivery:
-            summary_lines.append(f"  Delivery date: {delivery}")
+            summary_lines.append(f"\n  Delivery date: {delivery}")
 
     order_summary_message = (
         f"Order #{customer_order_id} — Total: £{total_amount}"
@@ -191,7 +175,6 @@ def _send_payment_notifications(request, order):
     secret = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')
     headers = {'X-Service-Secret': secret}
 
-    # Email 1 — payment success confirmation to customer
     try:
         requests.post(
             f"{NOTIFICATIONS_API_URL}/api/notifications/",
@@ -208,7 +191,6 @@ def _send_payment_notifications(request, order):
     except Exception:
         pass
 
-    # Email 2 — order summary to customer
     try:
         requests.post(
             f"{NOTIFICATIONS_API_URL}/api/notifications/",
@@ -224,46 +206,6 @@ def _send_payment_notifications(request, order):
         )
     except Exception:
         pass
-
-    # Notify each producer — their sub-order items only
-    for sub in sub_orders:
-        producer_id    = sub.get('producer_id')
-        producer_email = sub.get('producer_email', '')
-        producer_name  = sub.get('producer_name') or 'Producer'
-        sub_total      = sub.get('total_amount', '0.00')
-        sub_id         = sub.get('id', '')
-
-        if not producer_id:
-            continue
-
-        producer_lines = [f"Order #{sub_id} — Your subtotal: £{sub_total}\n"]
-        for item in sub.get('items', []):
-            name  = item.get('product_name', 'Item')
-            qty   = item.get('quantity', 1)
-            price = item.get('price_at_sale', '0.00')
-            producer_lines.append(f"  • {name} x{qty} — £{price}")
-        collection = sub.get('collection_type', '')
-        delivery   = sub.get('delivery_date', '')
-        if collection:
-            producer_lines.append(f"\nCollection type: {collection}")
-        if delivery:
-            producer_lines.append(f"Delivery date: {delivery}")
-
-        try:
-            requests.post(
-                f"{NOTIFICATIONS_API_URL}/api/notifications/",
-                json={
-                    'user':    producer_id,
-                    'email':   producer_email,
-                    'type':    'PAYMENT_RECEIVED',
-                    'title':   f'Payment Received — Order #{sub_id}',
-                    'message': "".join(producer_lines),
-                },
-                headers=headers,
-                timeout=5,
-            )
-        except Exception:
-            pass
 
 
 def _finalize_pending_order(request, *, payment_id, session_id, order_reference):
@@ -329,7 +271,6 @@ def _finalize_pending_order(request, *, payment_id, session_id, order_reference)
     if place_resp.status_code == 201:
         customer_order_id = place_resp.json().get('id')
 
-        # Set up recurring order if requested
         pending_checkout = request.session.get('pending_checkout', {})
         if pending_checkout.get('make_recurring'):
             try:
@@ -455,11 +396,6 @@ def index(request):
 
 
 def product_detail(request, product_id):
-    """
-    Individual product detail page.
-    Fetches a single product and its reviews from the platform API.
-    Calculates food miles between customer and producer postcodes.
-    """
     product = None
     reviews = []
     recipes = []
@@ -492,7 +428,6 @@ def product_detail(request, product_id):
             if resp_rec.status_code == 200:
                 recipes = resp_rec.json()
 
-            # Calculate food miles if customer is logged in
             if request.session.get('token') and request.session.get('role') == 'CUSTOMER':
                 try:
                     user_resp = requests.get(
@@ -856,7 +791,56 @@ def profile_view(request):
                 if failed:
                     error = "Some preferences could not be saved."
 
-    # Load notification preferences for the profile page
+        elif action == 'update_notification_prefs_all':
+            user_id = request.session.get('user_id')
+            if user_id:
+                global_email  = request.POST.get('email_enabled') == 'on'
+                global_in_app = request.POST.get('in_app_enabled') == 'on'
+                failed = False
+
+                try:
+                    resp = requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/",
+                        json={
+                            'user_id':        user_id,
+                            'email_enabled':  global_email,
+                            'in_app_enabled': global_in_app,
+                        },
+                        timeout=5
+                    )
+                    if resp.status_code != 200:
+                        failed = True
+                except Exception:
+                    failed = True
+
+                notification_types = request.POST.getlist('notification_types')
+                for ntype in notification_types:
+                    type_email  = request.POST.get(f'email_{ntype}') == 'on'
+                    type_in_app = request.POST.get(f'in_app_{ntype}') == 'on'
+                    if not global_email:
+                        type_email = False
+                    if not global_in_app:
+                        type_in_app = False
+                    try:
+                        resp = requests.post(
+                            f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/types/",
+                            json={
+                                'user_id':           user_id,
+                                'notification_type': ntype,
+                                'email_enabled':     type_email,
+                                'in_app_enabled':    type_in_app,
+                            },
+                            timeout=5
+                        )
+                        if resp.status_code != 200:
+                            failed = True
+                    except Exception:
+                        failed = True
+
+                success = "Notification settings saved." if not failed else None
+                if failed:
+                    error = "Some preferences could not be saved."
+
     notif_prefs = {'email_enabled': True, 'in_app_enabled': True}
     notif_type_prefs = {}
     user_id = request.session.get('user_id')
@@ -884,14 +868,17 @@ def profile_view(request):
             pass
 
     CUSTOMER_NOTIFICATION_TYPES = [
-        ('PAYMENT_RECEIVED', 'Payment Confirmed',  'Email confirmation when your payment is successfully processed'),
-        ('PAYMENT_FAILED',   'Payment Failed',     'Email alert when a payment could not be completed'),
-        ('ORDER_SUMMARY',    'Order Summary',      'Itemised order breakdown email sent after a successful payment'),
-        ('SURPLUS_DEAL',     'Surplus Deals',      'Alerts when a producer marks a product as a surplus deal'),
-        ('ORDER_CONFIRMED',  'Order Confirmed',    'Notifications when your order has been confirmed by the producer'),
-        ('ORDER_READY',      'Order Ready',        'Notifications when your order is ready for collection or delivery'),
-        ('ORDER_DELIVERED',  'Order Delivered',    'Notifications when your order has been marked as delivered'),
-        ('ORDER_CANCELLED',  'Order Cancelled',    'Notifications when an order is cancelled'),
+        ('PAYMENT_RECEIVED',          'Payment Confirmed',          'Email confirmation when your payment is successfully processed'),
+        ('PAYMENT_FAILED',            'Payment Failed',             'Email alert when a payment could not be completed'),
+        ('ORDER_SUMMARY',             'Order Summary',              'Itemised order breakdown email sent after a successful payment'),
+        ('SURPLUS_DEAL',              'Surplus Deals',              'Alerts when a producer marks a product as a surplus deal'),
+        ('ORDER_CONFIRMED',           'Order Confirmed',            'Notifications when your order has been confirmed by the producer'),
+        ('ORDER_READY',               'Order Ready',                'Notifications when your order is ready for collection or delivery'),
+        ('ORDER_DELIVERED',           'Order Delivered',            'Notifications when your order has been marked as delivered'),
+        ('ORDER_CANCELLED',           'Order Cancelled',            'Notifications when an order is cancelled'),
+        ('RECURRING_ORDER_REMINDER',  'Recurring Order Reminder',   'Day-before reminder when a recurring order is about to be placed automatically'),
+        ('RECURRING_ORDER_PLACED',    'Recurring Order Placed',     'Confirmation with full order summary when a recurring order fires successfully'),
+        ('RECURRING_ORDER_PAUSED',    'Recurring Order Paused',     'Alert when a recurring order is paused due to an item being unavailable or out of stock'),
     ]
     PRODUCER_NOTIFICATION_TYPES = [
         ('ORDER_PLACED',      'Order Placed',      'Alerts when a customer places a new order with you'),
@@ -925,10 +912,7 @@ def profile_view(request):
 
 
 def admin_dashboard(request):
-    """
-    Admin dashboard with tabs for users, products, orders, transactions, and site stats.
-    """
-    """Admin dashboard with commission monitoring."""
+    """Admin dashboard with tabs for users, products, orders, transactions, and site stats."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
 
@@ -1010,7 +994,6 @@ def admin_dashboard(request):
         producer_breakdown[producer]['total_commission'] += com
         producer_breakdown[producer]['total_payout'] += (rev - com)
 
-        # Food miles — only DELIVERED delivery orders
         status = (o.get('status') or '').upper()
         collection_type = (o.get('collection_type') or '').lower()
         if status == 'DELIVERED' and 'collect' not in collection_type:
@@ -1201,7 +1184,6 @@ def admin_run_weekly_settlement(request):
 
 
 def admin_commission_export(request):
-    """Export commission data as CSV."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
     orders = []
@@ -1261,7 +1243,6 @@ def admin_delete_user(request, user_id):
 
 
 def admin_edit_user(request, user_id):
-    """Admin-only: edit a user's details, profile and role."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
     if request.method == 'POST':
@@ -1837,10 +1818,6 @@ def clear_basket(request):
 
 
 def checkout_view(request):
-    """
-    Display the customer's basket with all items.
-    Calculates food miles per producer group.
-    """
     basket = None
     error = request.GET.get('error')
     items_by_producer = None
@@ -1923,7 +1900,6 @@ def create_order(request):
             producer_id = key.replace('delivery_instructions_', '')
             delivery_instructions[producer_id] = value.strip() or None
         
-        # Get recurring order details
         make_recurring = request.POST.get('make_recurring') == 'on'
         order_day = request.POST.get('order_day')
         delivery_day = request.POST.get('delivery_day')
@@ -2089,7 +2065,6 @@ def customer_order_history_view(request):
             success = "Payment successful."
     elif payment_status == 'cancelled':
         error = "Payment was cancelled. Your basket is unchanged."
-        # Send failed payment notification — only once
         if not request.session.get('payment_failed_notified'):
             request.session['payment_failed_notified'] = True
             customer_id = request.session.get('user_id')
@@ -2178,9 +2153,6 @@ def customer_order_history_view(request):
     })
 
 def recurring_order_detail_view(request, rec_order_id):
-    """
-    Displays the chosen recurring order's details to the customer.
-    """
     if not request.session.get('token'):
         error = "Please log in to view your recurring orders."
         return render(request, 'web/login.html', {
@@ -2261,12 +2233,8 @@ def recurring_order_update(request, rec_order_id):
     return redirect(f'/orders/recurring/{rec_order_id}/?error={quote(error)}')
 
 def write_review_view(request, product_id):
-    """
-    Allow a customer to write a review for a purchased product from a delivered order.
-    """
     token = request.session.get('token')
     if not token:
-        # Redirect or show error, but we return a general response
         return redirect('login')
 
     headers = {'Authorization': f'Bearer {token}'}
@@ -2275,9 +2243,7 @@ def write_review_view(request, product_id):
     success = request.GET.get('success')
     error = request.GET.get('error')
 
-    # GET: Form display with product info
     if request.method == 'GET':
-        # Fetch the product details to display on the review page
         prod_resp = requests.get(f"{platform_api_url}/api/products/{product_id}/", headers=headers)
         
         if prod_resp.status_code == 200:
@@ -2292,9 +2258,7 @@ def write_review_view(request, product_id):
             'error': error
         })
         
-    # POST: Submit review data
     elif request.method == 'POST':
-        # Collect post data
         rating = request.POST.get('rating')
         title = request.POST.get('title', '')
         comment = request.POST.get('comment', '')
@@ -2308,11 +2272,9 @@ def write_review_view(request, product_id):
             'is_anonymous': is_anonymous
         }
 
-        # Send POST to Platform Service Review endpoint
         review_resp = requests.post(f"{platform_api_url}/api/reviews/", json=payload, headers=headers)
         
         if review_resp.status_code == 201:
-            # Redirect to the product detail page for the given product
             return redirect(f"/products/{product_id}/?success=Your review has been submitted successfully!")
         else:
             try:
@@ -2322,7 +2284,6 @@ def write_review_view(request, product_id):
                 elif 'non_field_errors' in err_data:
                     err_msg = err_data['non_field_errors'][0]
                 else:
-                    # Generic dictionary error handling
                     if isinstance(err_data, dict):
                         err_msg = next(iter(err_data.values()))[0] if err_data else "Unknown error"
                     else:
@@ -2333,9 +2294,6 @@ def write_review_view(request, product_id):
             return redirect(f"/reviews/create/{product_id}/?error=Review error: {err_msg}")
 
 def delete_review_view(request, review_id):
-    """
-    Allow a customer to delete their previously submitted review.
-    """
     headers = get_auth_headers(request)
     if not headers:
         return redirect('login')
@@ -2352,10 +2310,6 @@ def delete_review_view(request, review_id):
         return redirect(f"/products/{product_id}/?error={err_msg}") if product_id else redirect('customer-orders')
 
 def customer_order_detail_view(request, order_id):
-    """
-    Displays order confirmation and details to the customer after checkout.
-    Calculates food miles per producer order based on collection_type.
-    """
     if not request.session.get('token'):
         return render(request, 'web/login.html', {'error': "Please log in to place an order."})
 
@@ -2374,7 +2328,6 @@ def customer_order_detail_view(request, order_id):
         if resp.status_code == 200:
             order = resp.json()
 
-            # Send payment confirmation notifications — only once per payment
             notif_flag = f'payment_notified_{order_id}'
             if payment_status == 'success' and not request.session.get(notif_flag):
                 request.session[notif_flag] = True
@@ -2475,7 +2428,6 @@ def producer_orders_view(request):
         resp = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=get_auth_headers(request), timeout=5)
         if resp.status_code == 200:
             orders = resp.json()
-            # Calculate food miles for DELIVERED delivery orders only
             try:
                 for order in orders:
                     status = (order.get('status') or '').upper()
@@ -2484,7 +2436,6 @@ def producer_orders_view(request):
                         items = order.get('items', [])
                         customer_postcode = order.get('customer_postcode')
                         if not customer_postcode and items:
-                            # Try to get customer postcode from order data
                             customer_postcode = (order.get('customer_profile') or {}).get('postcode')
                         producer_postcode = None
                         if items:
@@ -2500,12 +2451,4 @@ def producer_orders_view(request):
                         if customer_postcode and producer_postcode:
                             miles = _calculate_food_miles(customer_postcode, producer_postcode)
                             if miles:
-                                order['food_miles'] = miles
-                                total_food_miles += miles
-            except Exception:
-                pass
-            # Food miles stored on order - just read directly
-            for order in orders:
-                miles = float(order.get('food_miles') or 0)
-                if miles:
-                    total_food_miles 
+                            

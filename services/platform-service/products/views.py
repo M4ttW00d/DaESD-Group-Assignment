@@ -11,7 +11,7 @@ from .models import Product, Category, Recipe, FarmStory
 from .serializers import ProductSerializer, CategorySerializer, RecipeSerializer, FarmStorySerializer
 
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
-SERVICE_SECRET_KEY    = os.environ.get('JWT_SECRET_KEY', 'change-this-secret-key-for-jwt-tokens')
+SERVICE_SECRET_KEY    = os.environ.get('NOTIFICATIONS_API_SECRET_KEY') or os.environ.get('JWT_SECRET_KEY', 'change-this-secret')
 
 class IsProducerOrReadOnly(permissions.BasePermission):
     """

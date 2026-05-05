@@ -687,6 +687,7 @@
         <button class="tab-btn" onclick="switchTab('commission', this)">Commission</button>
         <button class="tab-btn" onclick="switchTab('foodmiles', this)">Food Miles</button>
         <button class="tab-btn" onclick="switchTab('settlements', this)">Settlements{% if unsettled_count %} <span style="background:#e8f5ee;color:#00622e;border-radius:10px;padding:1px 7px;font-size:0.72rem;">{{ unsettled_count }} pending</span>{% endif %}</button>
+        <button class="tab-btn" onclick="switchTab('notifications', this)">Notifications</button>
     </div>
 
     <!-- Users Tab -->
@@ -1149,6 +1150,175 @@
         {% endif %}
     </div>
 
+    <!-- Notifications Tab -->
+    <div id="tab-notifications" class="tab-panel">
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
+            <button id="notif-subtab-notifs" onclick="switchNotifSubtab('notifs')" style="padding:0.5rem 1.2rem;font-size:0.83rem;font-weight:700;border:none;border-bottom:2px solid var(--green);background:none;color:var(--green);cursor:pointer;">In-App &amp; Email</button>
+            <button id="notif-subtab-emails" onclick="switchNotifSubtab('emails')" style="padding:0.5rem 1.2rem;font-size:0.83rem;font-weight:700;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);cursor:pointer;">Email Log</button>
+        </div>
+
+        <!-- Sub-panel: notifications -->
+        <div id="notif-subpanel-notifs">
+        <div class="date-filter-bar" style="flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TYPE</label>
+                <select id="notif-filter-type" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All types</option>
+                    <option value="ORDER_PLACED">Order Placed</option>
+                    <option value="ORDER_CONFIRMED">Order Confirmed</option>
+                    <option value="ORDER_READY">Order Ready</option>
+                    <option value="ORDER_DELIVERED">Order Delivered</option>
+                    <option value="ORDER_CANCELLED">Order Cancelled</option>
+                    <option value="PAYMENT_RECEIVED">Payment Received</option>
+                    <option value="PAYMENT_FAILED">Payment Failed</option>
+                    <option value="ORDER_SUMMARY">Order Summary</option>
+                    <option value="LOW_STOCK">Low Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
+                    <option value="SURPLUS_DEAL">Surplus Deal</option>
+                    <option value="SEASONAL_REMINDER">Seasonal Reminder</option>
+                    <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
+                    <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
+                    <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">RECIPIENT</label>
+                <select id="notif-filter-role" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All recipients</option>
+                    <option value="customer">Customer</option>
+                    <option value="producer">Producer</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">EMAIL SENT</label>
+                <select id="notif-filter-email" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All</option>
+                    <option value="true">Email sent</option>
+                    <option value="false">No email</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">USER ID</label>
+                <input id="notif-filter-user" type="number" placeholder="Recipient ID" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;width:110px;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">FROM</label>
+                <input id="notif-filter-from" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TO</label>
+                <input id="notif-filter-to" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <button onclick="loadNotifications()" style="padding:0.4rem 1rem;background:var(--green);color:#fff;border:none;border-radius:5px;font-size:0.82rem;font-weight:700;cursor:pointer;">Apply</button>
+            <button onclick="clearNotifFilters()" style="padding:0.4rem 0.8rem;background:none;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;cursor:pointer;color:var(--text-muted);">Clear</button>
+            <span id="notif-count-label" style="margin-left:auto;font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+
+        <div id="notif-admin-loading" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.9rem;">Select filters and click Apply, or load all.</div>
+        <div id="notif-admin-table-wrap" style="display:none;overflow-x:auto;">
+            <table class="data-table" id="notif-admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Recipient</th>
+                        <th>Type</th>
+                        <th>Title</th>
+                        <th>In-App</th>
+                        <th>Email Sent</th>
+                        <th>Read</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="notif-admin-tbody"></tbody>
+            </table>
+        </div>
+        </div>
+
+        <!-- Sub-panel: email logs -->
+        <div id="notif-subpanel-emails" style="display:none;">
+        <div class="date-filter-bar" style="flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TYPE</label>
+                <select id="email-filter-type" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All types</option>
+                    <option value="ORDER_PLACED">Order Placed</option>
+                    <option value="ORDER_CONFIRMED">Order Confirmed</option>
+                    <option value="ORDER_READY">Order Ready</option>
+                    <option value="ORDER_DELIVERED">Order Delivered</option>
+                    <option value="ORDER_CANCELLED">Order Cancelled</option>
+                    <option value="PAYMENT_RECEIVED">Payment Received</option>
+                    <option value="PAYMENT_FAILED">Payment Failed</option>
+                    <option value="ORDER_SUMMARY">Order Summary</option>
+                    <option value="LOW_STOCK">Low Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
+                    <option value="SURPLUS_DEAL">Surplus Deal</option>
+                    <option value="SEASONAL_REMINDER">Seasonal Reminder</option>
+                    <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
+                    <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
+                    <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">STATUS</label>
+                <select id="email-filter-status" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All</option>
+                    <option value="SENT">Sent</option>
+                    <option value="FAILED">Failed</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">RECIPIENT EMAIL</label>
+                <input id="email-filter-recipient" type="text" placeholder="e.g. user@example.com" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;width:170px;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">FROM</label>
+                <input id="email-filter-from" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TO</label>
+                <input id="email-filter-to" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <button onclick="loadEmailLogs()" style="padding:0.4rem 1rem;background:var(--green);color:#fff;border:none;border-radius:5px;font-size:0.82rem;font-weight:700;cursor:pointer;">Apply</button>
+            <button onclick="clearEmailFilters()" style="padding:0.4rem 0.8rem;background:none;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;cursor:pointer;color:var(--text-muted);">Clear</button>
+            <span id="email-count-label" style="margin-left:auto;font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+
+        <div id="email-log-loading" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.9rem;">Select filters and click Apply, or load all.</div>
+        <div id="email-log-table-wrap" style="display:none;overflow-x:auto;">
+            <table class="data-table" id="email-log-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Recipient</th>
+                        <th>Subject</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Sent At</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="email-log-tbody"></tbody>
+            </table>
+        </div>
+        </div>
+    </div>
+
+<!-- View Email Modal -->
+<div class="modal-overlay" id="email-preview-modal" style="display:none;align-items:center;justify-content:center;z-index:1000;">
+    <div style="background:var(--bg);border-radius:10px;width:680px;max-width:96vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);">
+            <div>
+                <div style="font-weight:700;font-size:0.95rem;" id="email-preview-subject"></div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;" id="email-preview-meta"></div>
+            </div>
+            <button onclick="closeEmailPreview()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);line-height:1;">&times;</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:1.5rem;">
+            <iframe id="email-preview-frame" style="width:100%;border:none;min-height:420px;"></iframe>
+        </div>
+    </div>
+</div>
 </div>
 <br><br>
 
@@ -1281,287 +1451,4 @@ function filterTable(tableId, query) {
 
 // ── ORDERS FILTERING ──
 function filterOrders() {
-    const query = (document.getElementById('orders-search').value || '').toLowerCase();
-    const dateFrom = document.getElementById('orders-date-from').value;
-    const dateTo = document.getElementById('orders-date-to').value;
-    const rows = document.querySelectorAll('#orders-table tbody tr:not(.empty-row)');
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        const rowDate = row.getAttribute('data-date') || '';
-        const textMatch = !query || text.includes(query);
-        const fromMatch = !dateFrom || rowDate >= dateFrom;
-        const toMatch = !dateTo || rowDate <= dateTo;
-        row.style.display = (textMatch && fromMatch && toMatch) ? '' : 'none';
-    });
-}
-
-function setOrdersPreset(preset) {
-    const today = new Date().toISOString().slice(0, 10);
-    const fromInput = document.getElementById('orders-date-from');
-    const toInput = document.getElementById('orders-date-to');
-    document.querySelectorAll('#tab-orders .date-preset-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-    if (preset === 'all') {
-        fromInput.value = '';
-        toInput.value = '';
-    } else if (preset === 'today') {
-        fromInput.value = today;
-        toInput.value = today;
-    } else if (preset === 'week') {
-        const d = new Date(); d.setDate(d.getDate() - 7);
-        fromInput.value = d.toISOString().slice(0, 10);
-        toInput.value = today;
-    } else if (preset === 'month') {
-        const d = new Date(); d.setDate(d.getDate() - 30);
-        fromInput.value = d.toISOString().slice(0, 10);
-        toInput.value = today;
-    }
-    filterOrders();
-}
-
-// ── COMMISSION FILTERING ──
-function filterCommissionTable() {
-    const q = (document.getElementById('commission-search').value || '').toLowerCase();
-    const rows = document.querySelectorAll('#commission-table tbody tr:not(.empty-row)');
-    rows.forEach(row => {
-        row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-}
-
-function filterCommission() {
-    const dateFrom = document.getElementById('commission-date-from').value;
-    const dateTo = document.getElementById('commission-date-to').value;
-    const statusFilter = (document.getElementById('commission-status').value || '').toUpperCase();
-
-    const allRows = document.querySelectorAll('#orders-table tbody tr:not(.empty-row)');
-    let revenue = 0, commission = 0, orderCount = 0;
-    const producerTotals = {};
-    const monthlyTotals = {};
-
-    allRows.forEach(row => {
-        const rowDate = row.getAttribute('data-date') || '';
-        const cells = row.querySelectorAll('td');
-        const rowStatus = cells[6].textContent.trim().toUpperCase();
-        const fromMatch = !dateFrom || rowDate >= dateFrom;
-        const toMatch = !dateTo || rowDate <= dateTo;
-        const statusMatch = !statusFilter || rowStatus.includes(statusFilter);
-
-        if (fromMatch && toMatch && statusMatch) {
-            const r = parseFloat((cells[3].textContent || '0').replace('£', '')) || 0;
-            const c = parseFloat((cells[4].textContent || '0').replace('£', '')) || 0;
-            const producer = cells[2].textContent.trim();
-            const month = rowDate.slice(0, 7); // YYYY-MM
-            revenue += r;
-            commission += c;
-            orderCount++;
-
-            // Producer totals
-            if (!producerTotals[producer]) producerTotals[producer] = { orders: 0, revenue: 0, commission: 0 };
-            producerTotals[producer].orders++;
-            producerTotals[producer].revenue += r;
-            producerTotals[producer].commission += c;
-
-            // Monthly totals
-            if (!monthlyTotals[month]) monthlyTotals[month] = { orders: 0, revenue: 0, commission: 0 };
-            monthlyTotals[month].orders++;
-            monthlyTotals[month].revenue += r;
-            monthlyTotals[month].commission += c;
-        }
-    });
-
-    // Update period summary cards
-    document.getElementById('period-orders').textContent = orderCount;
-    document.getElementById('period-revenue').textContent = '£' + revenue.toFixed(2);
-    document.getElementById('period-commission').textContent = '£' + commission.toFixed(2);
-    document.getElementById('period-payout').textContent = '£' + (revenue - commission).toFixed(2);
-
-    // Rebuild monthly summary table
-    const monthlyTbody = document.getElementById('monthly-tbody');
-    monthlyTbody.innerHTML = '';
-    const months = Object.keys(monthlyTotals).sort().reverse();
-    if (months.length === 0) {
-        monthlyTbody.innerHTML = '<tr class="empty-row"><td colspan="5">No data for this period.</td></tr>';
-    } else {
-        months.forEach(month => {
-            const d = monthlyTotals[month];
-            const label = new Date(month + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-            monthlyTbody.innerHTML += `<tr>
-                <td><strong>${label}</strong></td>
-                <td>${d.orders}</td>
-                <td>£${d.revenue.toFixed(2)}</td>
-                <td>£${d.commission.toFixed(2)}</td>
-                <td>£${(d.revenue - d.commission).toFixed(2)}</td>
-            </tr>`;
-        });
-    }
-
-    // Rebuild producer breakdown table
-    const tbody = document.getElementById('commission-tbody');
-    tbody.innerHTML = '';
-    const sorted = Object.entries(producerTotals).sort((a, b) => b[1].commission - a[1].commission);
-    if (sorted.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No commission data for this period.</td></tr>';
-    } else {
-        sorted.forEach(([producer, data]) => {
-            const payout = data.revenue - data.commission;
-            tbody.innerHTML += `<tr>
-                <td><strong>${producer}</strong></td>
-                <td>${data.orders}</td>
-                <td>£${data.revenue.toFixed(2)}</td>
-                <td>£${data.commission.toFixed(2)}</td>
-                <td>£${payout.toFixed(2)}</td>
-            </tr>`;
-        });
-    }
-}
-
-function setCommissionPreset(preset) {
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10);
-    const fromInput = document.getElementById('commission-date-from');
-    const toInput = document.getElementById('commission-date-to');
-    document.querySelectorAll('#tab-commission .date-preset-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-    if (preset === 'all') {
-        fromInput.value = '';
-        toInput.value = '';
-    } else if (preset === 'today') {
-        fromInput.value = todayStr;
-        toInput.value = todayStr;
-    } else if (preset === 'week') {
-        const d = new Date(); d.setDate(d.getDate() - 7);
-        fromInput.value = d.toISOString().slice(0, 10);
-        toInput.value = todayStr;
-    } else if (preset === 'month') {
-        fromInput.value = todayStr.slice(0, 7) + '-01';
-        toInput.value = todayStr;
-    } else if (preset === 'ytd') {
-        fromInput.value = todayStr.slice(0, 4) + '-01-01';
-        toInput.value = todayStr;
-    }
-    filterCommission();
-}
-
-function exportCommissionCSV() {
-    const dateFrom = document.getElementById('commission-date-from').value;
-    const dateTo = document.getElementById('commission-date-to').value;
-    let url = '/admin-dashboard/commission/export/';
-    const params = [];
-    if (dateFrom) params.push('date_from=' + dateFrom);
-    if (dateTo) params.push('date_to=' + dateTo);
-    if (params.length) url += '?' + params.join('&');
-    window.location.href = url;
-}
-
-// ── SORTING ──
-const sortState = {};
-function sortTable(tableId, colIndex) {
-    const key = tableId + '_' + colIndex;
-    sortState[key] = !sortState[key];
-    const asc = sortState[key];
-    const tbody = document.querySelector('#' + tableId + ' tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
-    rows.sort((a, b) => {
-        const aText = a.querySelectorAll('td')[colIndex]?.textContent.trim() || '';
-        const bText = b.querySelectorAll('td')[colIndex]?.textContent.trim() || '';
-        const aNum = parseFloat(aText.replace(/[£,]/g, ''));
-        const bNum = parseFloat(bText.replace(/[£,]/g, ''));
-        if (!isNaN(aNum) && !isNaN(bNum)) return asc ? aNum - bNum : bNum - aNum;
-        return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
-    });
-    rows.forEach(r => tbody.appendChild(r));
-    // Update sort icons
-    document.querySelectorAll('#' + tableId + ' .sort-icon').forEach((icon, i) => {
-        icon.textContent = i === colIndex ? (asc ? '↑' : '↓') : '↕';
-    });
-}
-
-function toggleModalProfileFields(role) {
-    document.getElementById('modal-customer-fields').style.display = role === 'CUSTOMER' ? '' : 'none';
-    document.getElementById('modal-producer-fields').style.display = role === 'PRODUCER' ? '' : 'none';
-    document.getElementById('modal-community-fields').style.display = role === 'COMMUNITY-GROUP-REPRESENTATIVE' ? '' : 'none';
-}
-
-function copySessionId(sessionId, btn) {
-    navigator.clipboard.writeText(sessionId).then(() => {
-        btn.classList.add('copied');
-        btn.textContent = 'Copied!';
-        setTimeout(() => {
-            btn.classList.remove('copied');
-            btn.textContent = 'Copy';
-        }, 1500);
-    });
-}
-
-function copyToClipboard(text, btn) {
-    copySessionId(text, btn);
-}
-
-function sortTableByCol(tableId, colIndex) {
-    sortTable(tableId, colIndex);
-}
-
-function copySessionId(sessionId, btn) {
-    navigator.clipboard.writeText(sessionId).then(() => {
-        btn.classList.add('copied');
-        btn.textContent = 'Copied!';
-        setTimeout(() => {
-            btn.classList.remove('copied');
-            btn.textContent = 'Copy';
-        }, 1500);
-    });
-}
-
-function copyToClipboard(text, btn) {
-    copySessionId(text, btn);
-}
-
-function sortTableByCol(tableId, colIndex) {
-    sortTable(tableId, colIndex);
-}
-
-function openEditModalFromBtn(userId) {
-    const data = JSON.parse(document.getElementById('user-data-' + userId).textContent);
-    openEditModal(data.id, data.username, data.email, data.phone, data.role,
-        data.firstName, data.lastName, data.organizationName, data.organizationType,
-        data.customerDeliveryAddress, data.communityDeliveryAddress, data.customerPostcode, data.communityPostcode, data.businessName,
-        data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId);
-}
-
-function openEditModal(id, username, email, phone, role, firstName, lastName, organizationName, organizationType, customerDeliveryAddress, communityDeliveryAddress, customerPostcode, communityPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId) {
-    document.getElementById('edit-username').value = username;
-    document.getElementById('edit-email').value = email;
-    document.getElementById('edit-phone').value = phone;
-    document.getElementById('edit-role').value = role;
-    document.getElementById('edit-first-name').value = firstName;
-    document.getElementById('edit-last-name').value = lastName;
-    document.getElementById('edit-organization-name').value = organizationName;
-    document.getElementById('edit-organization-type').value = organizationType;
-    document.getElementById('edit-customer-delivery-address').value = customerDeliveryAddress;
-    document.getElementById('edit-community-delivery-address').value = communityDeliveryAddress;
-    document.getElementById('edit-customer-postcode').value = customerPostcode;
-    document.getElementById('edit-community-postcode').value = communityPostcode;
-    document.getElementById('edit-business-name').value = businessName;
-    document.getElementById('edit-business-address').value = businessAddress;
-    document.getElementById('edit-producer-postcode').value = producerPostcode;
-    document.getElementById('edit-bio').value = bio;
-    document.getElementById('edit-stripe-account-id').value = stripeAccountId || '';
-    document.getElementById('edit-user-form').action = '/admin-dashboard/users/' + id + '/edit/';
-    toggleModalProfileFields(role);
-    document.getElementById('edit-modal').classList.add('open');
-}
-
-function closeEditModal() {
-    document.getElementById('edit-modal').classList.remove('open');
-}
-
-function toggleSettlementDetail(id) {
-    const row = document.getElementById(id);
-    if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
-}
-
-document.getElementById('edit-modal').addEventListener('click', function(e) {
-    if (e.target === this) closeEditModal();
-});
-</script>
-{% endblock %}
+    const query = (document.getElementById('orders-search').value || '').toLowerCa

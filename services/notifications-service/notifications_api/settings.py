@@ -1,10 +1,6 @@
-"""
-Django settings for notifications_api project.
-"""
-import os 
+import os
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 def _load_env_file(path):
@@ -23,28 +19,21 @@ _secure_env_override = os.environ.get('NOTIFICATIONS_API_SECURE_ENV_FILE')
 if _secure_env_override:
     SECURE_ENV_FILES = [Path(_secure_env_override)]
 else:
-    # Support both legacy `env.secure` and preferred `.env.secure`.
-    # If both exist, `.env.secure` takes precedence.
     SECURE_ENV_FILES = [BASE_DIR / 'env.secure', BASE_DIR / '.env.secure']
 
 SECURE_ENV = {}
 for _secure_path in SECURE_ENV_FILES:
     SECURE_ENV.update(_load_env_file(_secure_path))
 
-# Backward-compatible debug/introspection variable.
 SECURE_ENV_FILE = SECURE_ENV_FILES[-1]
 
 
 def _secret(name, default=''):
     return os.environ.get(name) or SECURE_ENV.get(name) or default
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-%jg26zl(@1=&5fs(ax(ec_43d_$%i8p9b++n4vqmm(v%&27udp'
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = os.environ.get(
@@ -53,7 +42,6 @@ ALLOWED_HOSTS = os.environ.get(
 ).split(',')
 
 
-# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -98,8 +86,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'notifications_api.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
     'default': {
@@ -113,8 +99,6 @@ DATABASES = {
 }
 
 
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -132,18 +116,15 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files
 STATIC_URL = '/static/'
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SERVICE_SECRET_KEY = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', 'change-this-secret')
+SITE_URL = os.environ.get('SITE_URL', 'http://localhost:8000')
