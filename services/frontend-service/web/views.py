@@ -8,13 +8,17 @@ from urllib.parse import quote
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 
+
+# Base URL of the platform API service — no trailing slash, no /api suffix
 PLATFORM_API_URL = os.environ.get('PLATFORM_API_URL', 'http://platform-api:8002')
 
+# Used by the browser to load product images served by the platform service.
 MEDIA_BASE_URL = os.environ.get('MEDIA_BASE_URL', 'http://localhost:8002')
 PAYMENT_GATEWAY_URL = os.environ.get('PAYMENT_GATEWAY_URL', 'http://payment-gateway:8003')
 PAYMENT_GATEWAY_API_URL = os.environ.get('PAYMENT_GATEWAY_API_URL', PAYMENT_GATEWAY_URL).rstrip('/')
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
 
+"""Fetch lat/lng for a UK postcode from postcodes.io. Returns (lat, lng) or (None, None)."""
 def _get_postcode_coords(postcode):
     try:
         resp = requests.get(
@@ -29,6 +33,7 @@ def _get_postcode_coords(postcode):
         pass
     return None, None
 
+"""Calculate straight-line distance in miles between two lat/lng points."""
 def _haversine_miles(lat1, lon1, lat2, lon2):
     R = 3958.8
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
@@ -37,6 +42,7 @@ def _haversine_miles(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
     return R * 2 * math.asin(math.sqrt(a))
 
+"""Returns distance in miles as a float, or None if postcodes can't be resolved."""
 def _calculate_food_miles(customer_postcode, producer_postcode):
     if not customer_postcode or not producer_postcode:
         return None
@@ -46,6 +52,7 @@ def _calculate_food_miles(customer_postcode, producer_postcode):
         return None
     return round(_haversine_miles(lat1, lon1, lat2, lon2), 1)
 
+# UK 14 Major Allergens
 UK_ALLERGENS = [
     'Celery', 'Cereals containing gluten', 'Crustaceans', 'Eggs',
     'Fish', 'Lupin', 'Milk', 'Molluscs', 'Mustard', 'Tree nuts',
@@ -53,6 +60,7 @@ UK_ALLERGENS = [
 ]
 
 def get_auth_headers(request):
+    """Helper method to build authorization headers from session token."""
     token = request.session.get('token')
     if token:
         return {'Authorization': f'Bearer {token}'}
@@ -407,6 +415,11 @@ def index(request):
 
 
 def product_detail(request, product_id):
+    """
+    Individual product detail page.
+    Fetches a single product and its reviews from the platform API.
+    Calculates food miles between customer and producer postcodes.
+    """
     product = None
     reviews = []
     recipes = []
@@ -439,6 +452,7 @@ def product_detail(request, product_id):
             if resp_rec.status_code == 200:
                 recipes = resp_rec.json()
 
+            # Calculate food miles if customer is logged in
             if request.session.get('token') and request.session.get('role') == 'CUSTOMER':
                 try:
                     user_resp = requests.get(
@@ -924,6 +938,7 @@ def profile_view(request):
 
 def admin_dashboard(request):
     """Admin dashboard with tabs for users, products, orders, transactions, and site stats."""
+    """Admin dashboard with commission monitoring."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
 
@@ -1005,6 +1020,7 @@ def admin_dashboard(request):
         producer_breakdown[producer]['total_commission'] += com
         producer_breakdown[producer]['total_payout'] += (rev - com)
 
+        # Food miles — only DELIVERED delivery orders
         status = (o.get('status') or '').upper()
         collection_type = (o.get('collection_type') or '').lower()
         if status == 'DELIVERED' and 'collect' not in collection_type:
@@ -1195,6 +1211,7 @@ def admin_run_weekly_settlement(request):
 
 
 def admin_commission_export(request):
+    """Export commission data as CSV."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
     orders = []
@@ -1255,6 +1272,7 @@ def admin_delete_user(request, user_id):
 
 
 def admin_edit_user(request, user_id):
+    """Admin-only: edit a user's details, profile and role."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
     if request.method == 'POST':
@@ -1830,6 +1848,10 @@ def clear_basket(request):
 
 
 def checkout_view(request):
+    """
+    Display the customer's basket with all items.
+    Calculates food miles per producer group.
+    """
     basket = None
     error = request.GET.get('error')
     items_by_producer = None
@@ -2165,6 +2187,9 @@ def customer_order_history_view(request):
     })
 
 def recurring_order_detail_view(request, rec_order_id):
+    """
+    Displays the chosen recurring order's details to the customer.
+    """
     if not request.session.get('token'):
         error = "Please log in to view your recurring orders."
         return render(request, 'web/login.html', {
@@ -2245,7 +2270,11 @@ def recurring_order_update(request, rec_order_id):
     return redirect(f'/orders/recurring/{rec_order_id}/?error={quote(error)}')
 
 def write_review_view(request, product_id):
+    """
+    Allow a customer to write a review for a purchased product from a delivered order.
+    """
     token = request.session.get('token')
+    # Redirect or show error, but we return a general response
     if not token:
         return redirect('login')
 
@@ -2255,7 +2284,9 @@ def write_review_view(request, product_id):
     success = request.GET.get('success')
     error = request.GET.get('error')
 
+    # GET: Form display with product info
     if request.method == 'GET':
+        # Fetch the product details to display on the review page
         prod_resp = requests.get(f"{platform_api_url}/api/products/{product_id}/", headers=headers)
         
         if prod_resp.status_code == 200:
@@ -2270,6 +2301,7 @@ def write_review_view(request, product_id):
             'error': error
         })
         
+    # POST: Submit review data
     elif request.method == 'POST':
         rating = request.POST.get('rating')
         title = request.POST.get('title', '')
@@ -2284,6 +2316,7 @@ def write_review_view(request, product_id):
             'is_anonymous': is_anonymous
         }
 
+        # Send POST to Platform Service Review endpoint
         review_resp = requests.post(f"{platform_api_url}/api/reviews/", json=payload, headers=headers)
         
         if review_resp.status_code == 201:
@@ -2296,6 +2329,7 @@ def write_review_view(request, product_id):
                 elif 'non_field_errors' in err_data:
                     err_msg = err_data['non_field_errors'][0]
                 else:
+                    # Generic dictionary error handling
                     if isinstance(err_data, dict):
                         err_msg = next(iter(err_data.values()))[0] if err_data else "Unknown error"
                     else:
@@ -2306,6 +2340,9 @@ def write_review_view(request, product_id):
             return redirect(f"/reviews/create/{product_id}/?error=Review error: {err_msg}")
 
 def delete_review_view(request, review_id):
+    """
+    Allow a customer to delete their previously submitted review.
+    """
     headers = get_auth_headers(request)
     if not headers:
         return redirect('login')
@@ -2322,6 +2359,10 @@ def delete_review_view(request, review_id):
         return redirect(f"/products/{product_id}/?error={err_msg}") if product_id else redirect('customer-orders')
 
 def customer_order_detail_view(request, order_id):
+    """
+    Displays order confirmation and details to the customer after checkout.
+    Calculates food miles per producer order based on collection_type.
+    """
     if not request.session.get('token'):
         return render(request, 'web/login.html', {'error': "Please log in to place an order."})
 
@@ -2339,6 +2380,7 @@ def customer_order_detail_view(request, order_id):
         )
         if resp.status_code == 200:
             order = resp.json()
+            # Calculate food miles for DELIVERED delivery orders only
 
             notif_flag = f'payment_notified_{order_id}'
             if payment_status == 'success' and not request.session.get(notif_flag):
@@ -2384,7 +2426,7 @@ def write_review_view(request, product_id):
     error = request.GET.get('error')
 
     if request.method == 'GET':
-        prod_resp = requests.get(f"{PLATFORM_API_URL}/api/products/{product_id}/", headers=headers)
+    prod_resp = requests.get(f"{PLATFORM_API_L}/api/products/{product_id}/", headers=headers)
         if prod_resp.status_code == 200:
             product = prod_resp.json()
         else:

@@ -56,6 +56,7 @@ class Command(BaseCommand):
         customer_email = customer.email
         customer_id    = customer.id
 
+        # Calculate delivery date: next occurrence of delivery_day after today
         delivery_date = calculate_delivery_date(today, ro.delivery_day)
 
         items_by_producer = defaultdict(list)
@@ -64,6 +65,7 @@ class Command(BaseCommand):
         for item in ro.items.all():
             product = item.product
 
+            # Handle cases where one or more items in the recurring order is unavailable
             if (not product.is_available) or (product.stock_quantity < item.quantity):
                 unavailable_items.append(product.name)
             else:
@@ -95,6 +97,7 @@ class Command(BaseCommand):
             )
             return
 
+        # Pause if none of the items are currently available as well
         if not items_by_producer:
             ro.status = RecurringOrder.Status.PAUSED
             ro.save()
@@ -165,6 +168,7 @@ class Command(BaseCommand):
         customer_order.total_amount = total_amount
         customer_order.save()
 
+        # Increase next_order_date by 7 days
         ro.next_order_date = today + timezone.timedelta(days=7)
         ro.save()
 

@@ -7,21 +7,28 @@ from web import views
 handler404 = views.custom_404
 
 urlpatterns = [
+    # Favicon
     path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('web/assets/favicon.ico'), permanent=True)),
+
+    # Index
     path('admin/', admin.site.urls),
     path('', views.index, name='index'),
 
+    # Products listing and catalogue
     path('products/new/', views.add_product_view, name='add_product'),
     path('products/<int:product_id>/', views.product_detail, name='product_detail'),
     path('products/<int:product_id>/edit/', views.edit_product_view, name='edit_product'),
     path('products/<int:product_id>/delete/', views.delete_product_view, name='delete_product'),
 
+    # Producer dashboard
     path('dashboard/', views.producer_dashboard, name='dashboard'),
 
+    # Login & registration
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('register/', views.register_view, name='register'),
 
+    # Customer basket and checkout
     path('basket/', views.basket_view, name='basket'),
     path('basket/add/<int:product_id>/', views.add_to_basket, name='add-to-basket'),
     path('basket/update/<int:item_id>/', views.update_basket_item, name='update-basket-item'),
@@ -29,6 +36,7 @@ urlpatterns = [
     path('basket/clear/', views.clear_basket, name='clear-basket'),
     path('basket/checkout/', views.checkout_view, name='checkout'),
 
+    # Orders placement
     path('orders/', views.customer_order_history_view, name='customer-orders'),
     path('orders/place/', views.create_order, name='create-order'),
     path('orders/customer/<int:order_id>/', views.customer_order_detail_view, name='customer-order-detail'),
@@ -41,6 +49,7 @@ urlpatterns = [
     path('reviews/create/<int:product_id>/', views.write_review_view, name='write_review'),
     path('reviews/<int:review_id>/delete/', views.delete_review_view, name='delete_review'),
 
+    # Profile, admin and producer
     path('profile/', views.profile_view, name='profile'),
 
     path('admin-dashboard/', views.admin_dashboard, name='admin-dashboard'),
@@ -61,6 +70,7 @@ urlpatterns = [
     path('dashboard/content/stories/add/', views.add_farm_story_view, name='add_farm_story'),
     path('dashboard/content/stories/<int:story_id>/delete/', views.delete_farm_story_view, name='delete_farm_story'),
 
+    # Public Producer Profile
     path('producers/<int:producer_id>/', views.producer_public_profile, name='producer_public_profile'),
     path('producers/<int:producer_id>/favourite/', views.favourite_toggle_view, name='favourite_toggle'),
     path('favourites/', views.favourite_list_view, name='favourite_list'),
