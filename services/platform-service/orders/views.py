@@ -321,6 +321,30 @@ class CustomerOrderCancelView(APIView):
                         status='CANCELLED',
                         note="Cancelled by customer"
                     )
+                    
+                    # Get product names from order items
+                    product_names = ', '.join(
+                        item.product.name for item in order.items.select_related('product').all()
+                    )
+
+                    try:
+                        requests.post(
+                            f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                            json={
+                                'user': order.producer.id,
+                                'email': order.producer.email,
+                                'message': (
+                                    f"Order #{order.id} from {request.user.username} has been cancelled. "
+                                    f"Items: {product_names}."
+                                ),
+                                'type': 'ORDER_CANCELLED',
+                                'title': f'Order #{order.id} Cancelled',
+                            },
+                            headers={'X-Service-Secret': SERVICE_SECRET_KEY},
+                            timeout=5
+                        )
+                    except Exception:
+                        pass
             
             return Response({"message": "Order cancelled successfully."}, status=status.HTTP_200_OK)
 

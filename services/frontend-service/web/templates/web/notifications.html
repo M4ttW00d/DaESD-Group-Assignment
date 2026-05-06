@@ -210,7 +210,7 @@
     ];
 
     var PRODUCER_GROUPS = [
-        { key: 'orders',   label: 'Orders',   types: ['ORDER_PLACED'] },
+        { key: 'orders',   label: 'Orders',   types: ['ORDER_PLACED', 'ORDER_CANCELLED'] },
         { key: 'payments', label: 'Payments', types: ['PAYMENT_RECEIVED'] },
         { key: 'stock',    label: 'Stock',    types: ['LOW_STOCK','OUT_OF_STOCK'] },
         { key: 'seasonal', label: 'Seasonal', types: ['SEASONAL_REMINDER'] },
@@ -223,18 +223,21 @@
         var m = title ? title.match(/#(\d+)/) : null;
         var id = m ? m[1] : null;
         if (role === 'PRODUCER') {
-            if (type === 'ORDER_PLACED')                                   return id ? '/dashboard/orders/' + id + '/' : '/dashboard/orders/';
+            if (type === 'ORDER_PLACED' || type === 'ORDER_CANCELLED') {
+                return id ? '/dashboard/orders/' + id + '/' : '/dashboard/orders/';
+            }
             if (type === 'LOW_STOCK' || type === 'OUT_OF_STOCK')           return '/dashboard/';
             if (type === 'SEASONAL_REMINDER')                              return '/dashboard/';
             if (type === 'PAYMENT_RECEIVED')                               return '/dashboard/orders/';
         } else {
             if (type === 'ORDER_CONFIRMED' || type === 'ORDER_READY' ||
-                type === 'ORDER_DELIVERED' || type === 'ORDER_CANCELLED')   return '/orders/';
+                type === 'ORDER_DELIVERED')                                return '/orders/';
             if (type === 'PAYMENT_RECEIVED' || type === 'ORDER_SUMMARY' ||
-                type === 'PAYMENT_FAILED' || type === 'RECURRING_ORDER_PLACED') return id ? '/orders/customer/' + id + '/' : '/orders/';
+                type === 'PAYMENT_FAILED' || type === 'RECURRING_ORDER_PLACED' ||
+                type === 'ORDER_CANCELLED')                                return id ? '/orders/customer/' + id + '/' : '/orders/';
             if (type === 'RECURRING_ORDER_PAUSED' ||
-                type === 'RECURRING_ORDER_REMINDER')                        return id ? '/orders/recurring/' + id + '/' : '/orders/';
-            if (type === 'SURPLUS_DEAL')                                    return '/browse/';
+                type === 'RECURRING_ORDER_REMINDER')                       return id ? '/orders/recurring/' + id + '/' : '/orders/';
+            if (type === 'SURPLUS_DEAL')                                   return '/browse/';
         }
         return null;
     }

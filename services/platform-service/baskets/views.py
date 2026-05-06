@@ -67,6 +67,12 @@ class AddToBasketView(APIView):
                 {'error': f'Only {product.stock_quantity} units available in stock'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        if not product.is_available or not product.is_currently_in_season:
+            return Response(
+                {'error': 'This product is currently unavailable or not in season. Please check again later for restocks or seasonal updates.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         basket, created = Basket.objects.get_or_create(customer=request.user)
         
