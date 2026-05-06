@@ -33,7 +33,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - PLATFORM_API_URL=${PLATFORM_API_URL}
       - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
-      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
+      - NOTIFICATIONS_API_SECRET_KEY=change-this-secret
     depends_on:
       db:
         condition: service_healthy
@@ -59,7 +59,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - PLATFORM_API_URL=${PLATFORM_API_URL}
-      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
+      - NOTIFICATIONS_API_SECRET_KEY=change-this-secret
       - SITE_URL=${SITE_URL:-http://localhost:8000}
     depends_on:
       db:
@@ -84,7 +84,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
-      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
+      - NOTIFICATIONS_API_SECRET_KEY=change-this-secret
       - PAYMENT_GATEWAY_URL=${PAYMENT_GATEWAY_URL}
     volumes:
       - ./services/platform-service:/code
@@ -135,7 +135,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - NOTIFICATIONS_API_URL=${NOTIFICATIONS_API_URL}
-      - NOTIFICATIONS_API_SECRET_KEY=${NOTIFICATIONS_API_SECRET_KEY}
+      - NOTIFICATIONS_API_SECRET_KEY=change-this-secret
       - PAYMENT_GATEWAY_URL=${PAYMENT_GATEWAY_URL}
     volumes:
       - ./services/platform-service:/code
