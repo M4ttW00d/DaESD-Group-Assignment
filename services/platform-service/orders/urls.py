@@ -4,7 +4,8 @@ from .views import (
     OrderCreateView, CustomerOrderListView, CustomerOrderDetailView,
     ReorderView, RecurringOrderCreateView, RecurringOrderListView,
     RecurringOrderDetailView, RecurringOrderUpdateView,
-    TriggerRecurringOrdersView, UpdateRecurringOrdersDate)
+    TriggerRecurringOrdersView, UpdateRecurringOrdersDate,
+    CustomerOrderCancelView)
 
 urlpatterns = [
     path('', OrderListView.as_view(), name='order-list'),
@@ -20,4 +21,5 @@ urlpatterns = [
     path('recurring/<int:pk>/update/', RecurringOrderUpdateView.as_view()),
     path('recurring/order-date-update/', UpdateRecurringOrdersDate.as_view()),
     path('recurring/trigger/', TriggerRecurringOrdersView.as_view()),
+    path('customer-orders/<int:pk>/cancel/', CustomerOrderCancelView.as_view(), name='customer-order-cancel'),
 ]

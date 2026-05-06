@@ -287,7 +287,16 @@
             {% csrf_token %}
             <button type="submit" class="btn-secondary">Reorder</button>
         </form>
+
         <a href="/" class="btn-secondary" style="text-decoration: none;">Continue Shopping</a>
+        
+        {% if order.can_cancel %}
+        <form method="post" onsubmit="return confirm('Are you sure you want to cancel this order?');" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="cancel_order" value="1">
+            <button type="submit" class="btn-secondary" style="background-color: #d9534f; color: white;">Cancel Order</button>
+        </form>
+        {% endif %}
     </div>
 
     {% endif %}

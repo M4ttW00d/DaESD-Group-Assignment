@@ -2374,6 +2374,20 @@ def customer_order_detail_view(request, order_id):
     success = "Payment successful." if payment_status == 'success' else None
     error = None
 
+    if request.method == "POST" and "cancel_order" in request.POST:
+        try:
+            resp = requests.post(
+                f"{PLATFORM_API_URL}/api/orders/customer-orders/{order_id}/cancel/",
+                headers=get_auth_headers(request),
+                timeout=5
+            )
+            if resp.status_code == 200:
+                success = "Your order has been cancelled."
+            else:
+                error = resp.json().get('error', 'Failed to cancel order.')
+        except Exception as e:
+            error = f"Connection error: {str(e)}"
+
     try:
         resp = requests.get(
             f"{PLATFORM_API_URL}/api/orders/customer-orders/{order_id}/",

@@ -42,14 +42,33 @@ class CustomerOrder(models.Model):
         if not producer_orders:
             return "PENDING"
         statuses = set(po.status for po in producer_orders)
+        if statuses == {'CANCELLED'}:
+            return 'CANCELLED'
         if statuses == {'DELIVERED'}:
             return 'DELIVERED'
         elif 'PENDING' in statuses:
             return 'PENDING'
-        elif statuses <= {'CONFIRMED', 'READY', 'DELIVERED'}:
-            return 'CONFIRMED'
-        else:
-            return 'READY'
+        elif statuses <= {'CONFIRMED', 'READY', 'DELIVERED', 'CANCELLED'}:
+            if 'CONFIRMED' in statuses:
+                return 'CONFIRMED'
+        return 'READY'
+        
+    @property
+    def can_cancel(self):
+        """
+        Returns True if the order can be cancelled.
+        Condition: None of the sub-orders are READY or DELIVERED.
+        """
+        producer_orders = self.orders.all()
+        if not producer_orders:
+            return True
+        
+        # Check if any sub-order has reached restricted statuses
+        disallowed_statuses = {'READY', 'DELIVERED', 'CANCELLED'}
+        statuses = set(po.status for po in producer_orders)
+        
+        # If any order is READY or DELIVERED, the whole order is locked
+        return not any(s in disallowed_statuses for s in statuses)
 
 
 class Order(models.Model):
@@ -58,6 +77,7 @@ class Order(models.Model):
         CONFIRMED = 'CONFIRMED', _('Confirmed')
         READY = 'READY', _('Ready')
         DELIVERED = 'DELIVERED', _('Delivered')
+        CANCELLED = 'CANCELLED', _('Cancelled')
 
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders')
     customer_order = models.ForeignKey(CustomerOrder, on_delete=models.CASCADE, related_name='orders')
