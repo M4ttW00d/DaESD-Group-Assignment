@@ -2426,7 +2426,7 @@ def write_review_view(request, product_id):
     error = request.GET.get('error')
 
     if request.method == 'GET':
-        prod_resp = requests.get(f"{PLATFORM_API_URL}/api/products/{product_id}/", headers=headers)
+    prod_resp = requests.get(f"{PLATFORM_API_URL}/api/products/{product_id}/", headers=headers)
         if prod_resp.status_code == 200:
             product = prod_resp.json()
         else:
