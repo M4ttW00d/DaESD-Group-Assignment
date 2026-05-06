@@ -536,7 +536,7 @@
                         </div>
                     </div>
                     <div class="detail-stock">
-                        <strong>{{ product.stock_quantity }}</strong>
+                        <strong>{% if not product.is_available %}—{% else %}{{ product.stock_quantity }}{% endif %}</strong>
                         units in stock
                     </div>
                 </div>

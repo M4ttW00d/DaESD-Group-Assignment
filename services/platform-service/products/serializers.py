@@ -32,6 +32,16 @@ class ProductSerializer(serializers.ModelSerializer):
     is_currently_in_season = serializers.ReadOnlyField()
     seasonal_availability_text = serializers.ReadOnlyField()
     image = serializers.ImageField(use_url=False, required=False, allow_null=True)
+    seasonal_start_month = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=12)
+    seasonal_end_month = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=12)
+
+    def to_internal_value(self, data):
+        # Convert empty strings for seasonal months to None before validation
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        for field in ('seasonal_start_month', 'seasonal_end_month'):
+            if field in data and data[field] == '':
+                data[field] = None
+        return super().to_internal_value(data)
 
     class Meta:
         model = Product
