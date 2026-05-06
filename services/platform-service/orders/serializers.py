@@ -85,12 +85,13 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     orders = OrderSerializer(many=True, read_only=True)
     overall_status = serializers.CharField(read_only=True)
     total_items = serializers.IntegerField(read_only=True)
+    can_cancel = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = CustomerOrder
         fields = (
             'id', 'customer', 'total_amount', 'commission_total', 'overall_status',
-            'total_items', 'orders', 'created_at', 'updated_at'
+            'total_items', 'can_cancel', 'orders', 'created_at', 'updated_at'
         )
         read_only_fields = ('id', 'customer', 'total_amount', 'commission_total', 'created_at', 'updated_at', 'orders', 'overall_status', 'total_items')
 

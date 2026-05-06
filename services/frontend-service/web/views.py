@@ -149,6 +149,35 @@ def _extract_error_from_response(response, default_message):
     return default_message
 
 
+def _attempt_order_refund(request, order_id):
+    """Try to refund the Stripe payment linked to a customer order."""
+    refund_payment_id = ''
+    if str(request.session.get('finalized_order_id') or '') == str(order_id):
+        refund_payment_id = str(request.session.get('finalized_payment_id') or '')
+
+    for base_url in _candidate_payment_gateway_api_bases():
+        try:
+            refund_resp = requests.post(
+                f"{base_url}/payments/api/refund/",
+                json={
+                    'order_id': str(order_id),
+                    'payment_id': refund_payment_id,
+                },
+                timeout=10,
+            )
+            if refund_resp.status_code == 200:
+                data = refund_resp.json()
+                return True, f"A refund of £{data.get('amount')} has been issued and will appear within 5–10 business days."
+            try:
+                return False, refund_resp.json().get('error', 'Refund could not be processed automatically.')
+            except Exception:
+                return False, refund_resp.text[:180] or 'Refund could not be processed automatically.'
+        except Exception:
+            continue
+
+    return False, 'Refund could not be processed automatically because the payment gateway could not be reached.'
+
+
 def _send_payment_notifications(request, order):
     sub_orders     = order.get('orders', [])
     total_amount   = order.get('total_amount', '0.00')
@@ -290,6 +319,23 @@ def _finalize_pending_order(request, *, payment_id, session_id, order_reference)
     if place_resp.status_code == 201:
         customer_order_id = place_resp.json().get('id')
 
+        # Replaced the temporary pending reference on the payment with the real order id.
+        for base_url in _candidate_payment_gateway_api_bases():
+            try:
+                requests.post(
+                    f"{base_url}/payments/api/payment-order-reference/",
+                    json={
+                        'payment_id': str(payment_id),
+                        'session_id': session_id,
+                        'order_id': str(customer_order_id),
+                    },
+                    timeout=8,
+                )
+                break
+            except Exception:
+                continue
+
+        # Set up recurring order if requested
         pending_checkout = request.session.get('pending_checkout', {})
         if pending_checkout.get('make_recurring'):
             try:
@@ -2373,6 +2419,30 @@ def customer_order_detail_view(request, order_id):
     payment_status = request.GET.get('payment')
     success = "Payment successful." if payment_status == 'success' else None
     error = None
+
+    if request.method == "POST" and "cancel_order" in request.POST:
+        try:
+            resp = requests.post(
+                f"{PLATFORM_API_URL}/api/orders/customer-orders/{order_id}/cancel/",
+                headers=get_auth_headers(request),
+                timeout=5
+            )
+            if resp.status_code == 200:
+                refunded, refund_message = _attempt_order_refund(request, order_id)
+                if refunded:
+                    success = f"Your order has been cancelled. {refund_message}"
+                else:
+                    success = f"Your order has been cancelled. Note: refund could not be processed automatically — {refund_message}"
+            else:
+                error = resp.json().get('error', 'Failed to cancel order.')
+        except Exception as e:
+            error = f"Connection error: {str(e)}"
+    elif request.method == "POST" and "retry_refund" in request.POST:
+        refunded, refund_message = _attempt_order_refund(request, order_id)
+        if refunded:
+            success = refund_message
+        else:
+            error = refund_message
 
     try:
         resp = requests.get(

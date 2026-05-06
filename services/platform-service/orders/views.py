@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from baskets.models import Basket, BasketItem
 from baskets.views import IsCustomerOrCommunityRepresentative
 
-from .models import Order, OrderItem, CustomerOrder, RecurringOrder, RecurringOrderItem
+from .models import Order, OrderItem, CustomerOrder, RecurringOrder, RecurringOrderItem, OrderStatusLog
 from .serializers import OrderSerializer, CustomerOrderSerializer, RecurringOrderSerializer
 
 from decimal import Decimal
@@ -298,6 +298,58 @@ class CustomerOrderDetailView(generics.RetrieveAPIView):
         if user.role == 'ADMIN':
             return CustomerOrder.objects.all()
         return CustomerOrder.objects.filter(customer=user)
+    
+class CustomerOrderCancelView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            customer_order = CustomerOrder.objects.get(pk=pk, customer=request.user)
+            
+            if not customer_order.can_cancel:
+                return Response(
+                    {"error": "Order cannot be cancelled. It may already be ready or delivered."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            with transaction.atomic():
+                for order in customer_order.orders.all():
+                    order.status = 'CANCELLED'
+                    order.save()
+                    
+                    OrderStatusLog.objects.create(
+                        order=order,
+                        status='CANCELLED',
+                        note="Cancelled by customer"
+                    )
+                    
+                    # Get product names from order items
+                    product_names = ', '.join(
+                        item.product.name for item in order.items.select_related('product').all()
+                    )
+
+                    try:
+                        requests.post(
+                            f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                            json={
+                                'user': order.producer.id,
+                                'email': order.producer.email,
+                                'message': (
+                                    f"Order #{order.id} from {request.user.username} has been cancelled. "
+                                    f"Items: {product_names}."
+                                ),
+                                'type': 'ORDER_CANCELLED',
+                                'title': f'Order #{order.id} Cancelled',
+                            },
+                            headers={'X-Service-Secret': SERVICE_SECRET_KEY},
+                            timeout=5
+                        )
+                    except Exception:
+                        pass
+            
+            return Response({"message": "Order cancelled successfully."}, status=status.HTTP_200_OK)
+
+        except CustomerOrder.DoesNotExist:
+            return Response({"error": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class CustomerOrderListView(generics.ListAPIView):
     serializer_class = CustomerOrderSerializer

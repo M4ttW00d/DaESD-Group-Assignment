@@ -248,6 +248,7 @@
 .status-payment-paid              { background: #e8f5ee; color: #00622e; }
 .status-payment-unpaid            { background: #fdf3dc; color: #9a6b10; }
 .status-payment-no_payment_required { background: #e3f2fd; color: #1565c0; }
+.status-payment-refunded          { background: #eef2ff; color: #3049a5; }
 
 .copy-btn {
     cursor: pointer;
@@ -1032,7 +1033,7 @@
                     <td>{{ transaction.user_id|default:"—" }}</td>
                     <td>{{ transaction.amount_total }} {{ transaction.currency }}</td>
                     <td>
-                        <span class="status-badge status-payment-{{ transaction.payment_status|lower }}">{{ transaction.payment_status }}</span>
+                        <span class="status-badge status-payment-{{ transaction.display_status|lower }}">{{ transaction.display_status }}</span>
                     </td>
                     <td>{{ transaction.created_at }}</td>
                 </tr>

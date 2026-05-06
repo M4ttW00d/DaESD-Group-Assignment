@@ -287,9 +287,57 @@
             {% csrf_token %}
             <button type="submit" class="btn-secondary">Reorder</button>
         </form>
+
         <a href="/" class="btn-secondary" style="text-decoration: none;">Continue Shopping</a>
+        
+        {% if order.can_cancel %}
+            <form method="post" id="cancel-order-form" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="cancel_order" value="1">
+                <button type="button" class="btn-secondary" id="cancel-btn" style="background-color: #d9534f; color: white;">
+                    Cancel Order
+                </button>
+            </form>
+        {% elif order.overall_status == 'CANCELLED' %}
+            <form method="post" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="retry_refund" value="1">
+                <button type="submit" class="btn-secondary">Retry Refund</button>
+            </form>
+        {% endif %}
     </div>
 
     {% endif %}
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const cancelButton = document.getElementById('cancel-btn');
+
+        if (cancelButton) {
+            cancelButton.addEventListener('click', (e) => {
+                e.preventDefault();
+
+                const currentUrl = window.location.pathname;
+
+                showConfirmModal(
+                    'Cancel Order',
+                    'Are you sure you want to cancel this order? A full refund will be issued and the producer will be notified on cancellation.',
+                    currentUrl,
+                    '1'
+                );
+
+                const hiddenInput = document.getElementById('confirm-hidden-action');
+                if (hiddenInput) {
+                    hiddenInput.name = 'cancel_order';
+                }
+
+                const confirmBtn = document.querySelector('.btn-confirm-delete');
+                if (confirmBtn) confirmBtn.textContent = 'Confirm Cancellation';
+                
+                const backBtn = document.getElementById('confirm-cancel-btn');
+                if (backBtn) backBtn.textContent = 'Go Back';
+            });
+        }
+    });
+</script>
 {% endblock %}
