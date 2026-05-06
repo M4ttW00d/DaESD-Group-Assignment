@@ -58,12 +58,8 @@ def _calculate_food_miles(customer_postcode, producer_postcode):
 import os
 
 def calculate_delivery_date(order_date, delivery_day):
-    """
-    Given the date the order is placed and the desired delivery day of week,
-    returns the next valid delivery date enforcing a 48-hour lead time.
-    """
     days_ahead = (int(delivery_day) - int(order_date.weekday())) % 7
-    if days_ahead < 2:  # if less than 48 hours away, pushes to next week
+    if days_ahead < 2:
         days_ahead += 7
     return order_date + datetime.timedelta(days=days_ahead)
 
@@ -71,7 +67,6 @@ def is_in_season(product):
     season_start = product.seasonal_start_month
     season_end = product.seasonal_end_month
 
-    # Return true for products without seasonal availablility
     if season_start is None or season_end is None:
         return True
 
@@ -89,14 +84,13 @@ class OrderCreateView(APIView):
     """
     permission_classes = [IsCustomerOrCommunityRepresentative]
 
-    @transaction.atomic # Transaction atomic decorator is used to rollback all database trasnactions if any of them fail
+    @transaction.atomic
     def post(self, request):
         try:
             delivery_dates = request.data.get('delivery_dates', {})
             collection_types = request.data.get('collection_types', {})
             delivery_instructions = request.data.get('delivery_instructions', {})
-            
-            # Get customer's basket
+
             try:
                 basket = Basket.objects.get(customer=request.user)
             except Basket.DoesNotExist:
@@ -104,35 +98,31 @@ class OrderCreateView(APIView):
                     {'error': 'Your basket is empty.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             basket_items = basket.items.select_related('product', 'product__producer').all()
-            
+
             if not basket_items:
                 return Response(
                     {'error': 'Your basket is empty.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
-            # Group by producer
+
             items_by_producer = defaultdict(list)
             for basket_item in basket_items:
                 producer = basket_item.product.producer
                 items_by_producer[producer].append(basket_item)
-            
-            # Create the parent/highlevel customer order
+
             customer_order = CustomerOrder.objects.create(
                 customer=request.user
             )
-            
+
             total_amount = Decimal('0.00')
-            
-            # Create separate orders for each producer
-            notified_producers = []
+
             for producer, producer_basket_items in items_by_producer.items():
                 producer_id = str(producer.id)
                 delivery_date=delivery_dates.get(producer_id)
                 delivery_instruction=delivery_instructions.get(producer_id)
-                
+
                 try:
                     delivery_date = self._validate_delivery_date(delivery_dates.get(producer_id))
                 except ValueError as e:
@@ -152,6 +142,7 @@ class OrderCreateView(APIView):
                     except Exception:
                         pass
 
+
                 order = Order.objects.create(
                     customer_order=customer_order,
                     customer=request.user,
@@ -161,11 +152,9 @@ class OrderCreateView(APIView):
                     delivery_instruction=delivery_instruction,
                     food_miles=food_miles,
                 )
-                notified_producers.append(producer.id)
-                
+
                 order_subtotal = Decimal('0.00')
-                
-                # Create order items
+
                 for basket_item in producer_basket_items:
                     try:
                         product = basket_item.product
@@ -188,6 +177,7 @@ class OrderCreateView(APIView):
                                     f"{NOTIFICATIONS_API_URL}/api/notifications/",
                                     json={
                                         'user':    producer.id,
+                                        'email':   producer.email,
                                         'message': f"'{product.name}' is now out of stock.",
                                         'type':    'OUT_OF_STOCK',
                                         'title':   f'Out of Stock: {product.name}',
@@ -203,6 +193,7 @@ class OrderCreateView(APIView):
                                     f"{NOTIFICATIONS_API_URL}/api/notifications/",
                                     json={
                                         'user':    producer.id,
+                                        'email':   producer.email,
                                         'message': (
                                             f"Low stock: '{product.name}' has only "
                                             f"{product.stock_quantity} unit(s) left."
@@ -217,48 +208,78 @@ class OrderCreateView(APIView):
                                 pass
                     except ValueError as e:
                         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Update order totals
+
                 order.total_amount = order_subtotal
                 order.commission_total = order_subtotal * Decimal('0.05')
                 order.save()
-                
-                # Add to customer order totals
-                total_amount += order_subtotal
-            
-            # Update customer order totals
-            customer_order.total_amount = total_amount
-            customer_order.save()
 
-            for producer_id in notified_producers:
+                total_amount += order_subtotal
+
+                is_bulk = getattr(request.user, 'role', '') == 'COMMUNITY-GROUP-REPRESENTATIVE'
+                notif_type = 'BULK_ORDER_PLACED' if is_bulk else 'ORDER_PLACED'
+
+                order_lines = [f"Order #{order.id} from {request.user.username}\n"]
+                if is_bulk:
+                    try:
+                        org_name = request.user.community_profile.organisation_name
+                        order_lines[0] = f"Bulk Order #{order.id} from {request.user.username} ({org_name})\n"
+                    except Exception:
+                        order_lines[0] = f"Bulk Order #{order.id} from {request.user.username} (Community Group)\n"
+                for basket_item in producer_basket_items:
+                    product = basket_item.product
+                    order_lines.append(f"  • {product.name} x{basket_item.quantity} — £{product.price}")
+                order_lines.append(f"\nSubtotal: £{order_subtotal:.2f}")
+                collection = collection_types.get(producer_id)
+                if collection:
+                    order_lines.append(f"Collection type: {collection}")
+                if delivery_date:
+                    order_lines.append(f"Delivery date: {delivery_date}")
+                if is_bulk and delivery_instruction:
+                    order_lines.append(f"\nSpecial Instructions: {delivery_instruction}")
+                if is_bulk:
+                    order_lines.append(f"\nCustomer Contact Details:")
+                    order_lines.append(f"  Email: {request.user.email}")
+                    if request.user.phone_number:
+                        order_lines.append(f"  Phone: {request.user.phone_number}")
+                    try:
+                        delivery_addr = request.user.community_profile.delivery_address
+                        if delivery_addr:
+                            order_lines.append(f"  Delivery Address: {delivery_addr}")
+                    except Exception:
+                        pass
+
+                notif_title = (
+                    f'Bulk Order Received — #{order.id}' if is_bulk
+                    else f'New Order Received — #{order.id}'
+                )
+
                 try:
                     requests.post(
                         f"{NOTIFICATIONS_API_URL}/api/notifications/",
                         json={
-                            'user':    producer_id,
-                            'message': (
-                                f"You have a new order from {request.user.username}. "
-                                "Log in to your dashboard to view the details."
-                            ),
-                            'type':  'ORDER_PLACED',
-                            'title': 'New Order Received',
+                            'user':    producer.id,
+                            'email':   producer.email,
+                            'message': "\n".join(order_lines),
+                            'type':    notif_type,
+                            'title':   notif_title,
                         },
                         headers={'X-Service-Secret': SERVICE_SECRET_KEY},
                         timeout=5
                     )
                 except Exception:
                     pass
-            
-            # Clear customer's basket once order is successfully placed
+
+            customer_order.total_amount = total_amount
+            customer_order.save()
+
             basket.items.all().delete()
-            
-            # Return the created order
+
             serializer = CustomerOrderSerializer(customer_order)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
+
         except OrderValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     def _validate_delivery_date(self, value):
         if value:
             parsed_date = datetime.date.fromisoformat(value)
@@ -269,10 +290,6 @@ class OrderCreateView(APIView):
         return value
 
 class CustomerOrderDetailView(generics.RetrieveAPIView):
-    """
-    Shows a detailed order view specific to the customer.
-    Returns all customer orders for an admin user.
-    """
     serializer_class = CustomerOrderSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -283,10 +300,6 @@ class CustomerOrderDetailView(generics.RetrieveAPIView):
         return CustomerOrder.objects.filter(customer=user)
 
 class CustomerOrderListView(generics.ListAPIView):
-    """
-    Shows a highlevel view of customer orders with actions to view
-    each order's details.
-    """
     serializer_class = CustomerOrderSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -296,9 +309,6 @@ class CustomerOrderListView(generics.ListAPIView):
         return CustomerOrder.objects.filter(customer=self.request.user)
 
 class OrderListView(generics.ListAPIView):
-    """
-    Handles listing orders.
-    """
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -307,9 +317,7 @@ class OrderListView(generics.ListAPIView):
         if user.role == 'ADMIN':
             return Order.objects.all()
         if user.role == 'PRODUCER':
-            # Return orders that contain items from this producer's products
             return Order.objects.filter(producer=user).distinct()
-        # Standard customers see only their own orders
         return Order.objects.filter(customer=user)
 
 class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -325,18 +333,15 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Order.objects.filter(customer=user)
 
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
-SERVICE_SECRET_KEY    = os.environ.get('JWT_SECRET_KEY', 'change-this-secret-key-for-jwt-tokens')
+SERVICE_SECRET_KEY    = os.environ.get('NOTIFICATIONS_API_SECRET_KEY') or os.environ.get('JWT_SECRET_KEY', 'change-this-secret')
 
 class OrderStatusUpdateView(APIView):
-    """
-    Allows a producer to update the status of an order and log it.
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, pk):
         if request.user.role != 'PRODUCER':
             return Response({'error': 'Only producers can update status'}, status=status.HTTP_403_FORBIDDEN)
-            
+
         try:
             order = Order.objects.filter(pk=pk, producer=request.user).distinct().get()
         except Order.DoesNotExist:
@@ -352,7 +357,6 @@ class OrderStatusUpdateView(APIView):
         if new_status not in valid_statuses:
             return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Basic progression check
         progression = ['PENDING', 'CONFIRMED', 'READY', 'DELIVERED']
         try:
             current_idx = progression.index(order.status)
@@ -364,11 +368,9 @@ class OrderStatusUpdateView(APIView):
         except ValueError:
             pass
 
-        # Update order status
         order.status = new_status
         order.save()
 
-        # Create log
         from .models import OrderStatusLog
         OrderStatusLog.objects.create(
             order=order,
@@ -377,7 +379,6 @@ class OrderStatusUpdateView(APIView):
             note=note
         )
 
-        # Trigger notification to customer with a status-specific type (TC-010)
         status_type_map = {
             'CONFIRMED': 'ORDER_CONFIRMED',
             'READY':     'ORDER_READY',
@@ -390,6 +391,7 @@ class OrderStatusUpdateView(APIView):
                 f"{NOTIFICATIONS_API_URL}/api/notifications/",
                 json={
                     'user':    order.customer.id,
+                    'email':   order.customer.email,
                     'message': (
                         f"Your order #{order.id} has been updated to {new_status.lower()}"
                         + (f". Note: {note}" if note else ".")
@@ -401,7 +403,7 @@ class OrderStatusUpdateView(APIView):
                 timeout=5
             )
         except Exception:
-            pass  # Non-critical if notification fails
+            pass
 
         return Response({'success': True, 'status': new_status})
 
@@ -462,8 +464,7 @@ class RecurringOrderCreateView(APIView):
 
     def post(self, request):
         customer_order_id = request.data.get('customer_order_id')
-        
-        # order_day and delivery_day are integers 0-6 for week days starting from Monday
+
         order_day = request.data.get('order_day')
         delivery_day = request.data.get('delivery_day')
 
@@ -471,8 +472,7 @@ class RecurringOrderCreateView(APIView):
 
         if order_day is None or delivery_day is None:
             return Response({'error': 'order_day and delivery_day are required.'}, status=400)
-        
-        # Validate 48-hour lead time
+
         days_between = (int(delivery_day) - int(order_day)) % 7
         if days_between == 0:
             days_between = 7
@@ -481,17 +481,15 @@ class RecurringOrderCreateView(APIView):
                 'error': 'Delivery day must be at least 2 days after order day.'
             }, status=400)
 
-        # Get the original customer order that the recurring order will be using as its template
         try:
             customer_order = CustomerOrder.objects.get(pk=customer_order_id, customer=request.user)
         except CustomerOrder.DoesNotExist:
             return Response({'error': 'Order not found.'}, status=404)
 
-        # Calculate next occurrence of order_day
         today = timezone.now().date()
         days_ahead = (int(order_day) - today.weekday()) % 7
         if days_ahead == 0:
-            days_ahead = 7  # Schedule for next week if today matches
+            days_ahead = 7
         next_order_date = today + datetime.timedelta(days=days_ahead)
 
         recurring_order = RecurringOrder.objects.create(
@@ -503,7 +501,6 @@ class RecurringOrderCreateView(APIView):
             next_order_date=next_order_date,
         )
 
-        # Snapshot the items from the source order
         for order in customer_order.orders.all():
             for item in order.items.all():
                 RecurringOrderItem.objects.create(
@@ -518,7 +515,7 @@ class RecurringOrderCreateView(APIView):
             'order_day': recurring_order.get_order_day_display(),
             'delivery_day': recurring_order.get_delivery_day_display(),
         }, status=201)
-    
+
 class RecurringOrderListView(APIView):
     permission_classes = [IsCustomerOrCommunityRepresentative]
 
@@ -578,23 +575,14 @@ class RecurringOrderUpdateView(APIView):
 
         ro.save()
         return Response({'success': True})
-    
-class UpdateRecurringOrdersDate(APIView):
-    """
-    Manually resets all recurring orders next_order_date to today.
-    Once all active orders are reset to reorder today, cron job will
-    automatically place the orders.
-    This can be done from the admin dashboard only.
 
-    - For demonstration purposes only -
-    """
+class UpdateRecurringOrdersDate(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         if request.user.role != 'ADMIN':
             return Response({'error': 'Admin only.'}, status=403)
-        
-        # Reset next_order_date for all active recurring orders to today
+
         RecurringOrder.objects.filter(
             status=RecurringOrder.Status.ACTIVE
         ).update(next_order_date=timezone.now().date())
@@ -615,7 +603,6 @@ class TriggerRecurringOrdersView(APIView):
         if request.user.role != 'ADMIN':
             return Response({'error': 'Admin only.'}, status=403)
 
-        # Run the management command
         out = StringIO()
         call_command('process_recurring_orders', stdout=out)
         output = out.getvalue()

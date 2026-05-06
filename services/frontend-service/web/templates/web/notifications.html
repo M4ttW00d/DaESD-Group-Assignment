@@ -1,0 +1,422 @@
+{% extends 'web/base.html' %}
+{% block title %}Notifications — BRFN{% endblock %}
+{% block content %}
+<style>
+.notif-page-wrap {
+    max-width: 780px;
+    margin: 2.5rem auto;
+    padding: 0 1rem;
+}
+.notif-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.8rem;
+}
+.notif-page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+}
+.notif-mark-all-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.notif-mark-all-btn:hover {
+    background: var(--cream-dark);
+    color: var(--text);
+}
+.notif-group {
+    margin-bottom: 2rem;
+}
+.notif-group-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+}
+.notif-card {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    transition: box-shadow 0.15s, background 0.15s;
+    cursor: default;
+}
+.notif-card.has-link {
+    cursor: pointer;
+}
+.notif-card.has-link:hover {
+    box-shadow: var(--shadow);
+    background: #fdf9f3;
+}
+.notif-card.unread {
+    background: #f2faf5;
+    border-color: #b8dfc8;
+}
+.notif-card.unread.has-link:hover {
+    background: #e8f5ee;
+}
+.notif-card.highlight {
+    outline: 2px solid #00622e;
+    outline-offset: 2px;
+    animation: pulse-highlight 1.5s ease-out;
+}
+@keyframes pulse-highlight {
+    0%   { outline-color: #00622e; background: #e8f5ee; }
+    100% { outline-color: #00622e; background: inherit; }
+}
+.notif-card-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #00622e;
+    flex-shrink: 0;
+    margin-top: 5px;
+    opacity: 0;
+}
+.notif-card.unread .notif-card-dot {
+    opacity: 1;
+}
+.notif-card-body {
+    flex: 1;
+    min-width: 0;
+}
+.notif-card-title {
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+}
+.notif-card-msg {
+    font-size: 0.84rem;
+    color: #555;
+    line-height: 1.6;
+    white-space: pre-line;
+}
+.notif-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+.notif-card-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.notif-card-link-hint {
+    font-size: 0.75rem;
+    color: #00622e;
+    font-weight: 600;
+}
+.notif-empty-group {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    padding: 0.5rem 0;
+}
+#notif-page-loading {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 3rem 0;
+    font-size: 0.95rem;
+}
+.notif-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.6rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.notif-filter-pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.notif-filter-pill:hover {
+    background: var(--cream-dark);
+    color: var(--text);
+}
+.notif-filter-pill.active {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green);
+}
+.notif-filter-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 4px;
+}
+.notif-result-count {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+</style>
+
+<div class="notif-page-wrap">
+    <div class="notif-page-header">
+        <h1>Notifications</h1>
+        <button class="notif-mark-all-btn" id="page-mark-all">Mark all as read</button>
+    </div>
+    <div id="notif-filter-bar" class="notif-filter-bar" style="display:none;">
+        <button class="notif-filter-pill active" data-filter="read" data-value="all">All</button>
+        <button class="notif-filter-pill" data-filter="read" data-value="unread">Unread</button>
+        <div class="notif-filter-divider"></div>
+        <div id="notif-category-pills"></div>
+        <span class="notif-result-count" id="notif-result-count"></span>
+    </div>
+    <div id="notif-page-loading">Loading notifications...</div>
+    <div id="notif-page-content" style="display:none;"></div>
+</div>
+
+<script>
+(function () {
+    var role        = '{{ request.session.role }}';
+    var highlightId = new URLSearchParams(window.location.search).get('highlight');
+    var allItems    = [];
+    var activeRead  = 'all';
+    var activeGroup = 'all';
+
+    var CUSTOMER_GROUPS = [
+        { key: 'orders',    label: 'Orders',          types: ['ORDER_CONFIRMED','ORDER_READY','ORDER_DELIVERED','ORDER_CANCELLED','ORDER_UPDATE','ORDER_SUMMARY'] },
+        { key: 'payments',  label: 'Payments',         types: ['PAYMENT_RECEIVED','PAYMENT_FAILED'] },
+        { key: 'recurring', label: 'Recurring Orders', types: ['RECURRING_ORDER_PLACED','RECURRING_ORDER_PAUSED','RECURRING_ORDER_REMINDER'] },
+        { key: 'deals',     label: 'Deals',            types: ['SURPLUS_DEAL'] },
+        { key: 'other',     label: 'Other',            types: [] },
+    ];
+
+    var PRODUCER_GROUPS = [
+        { key: 'orders',   label: 'Orders',   types: ['ORDER_PLACED'] },
+        { key: 'payments', label: 'Payments', types: ['PAYMENT_RECEIVED'] },
+        { key: 'stock',    label: 'Stock',    types: ['LOW_STOCK','OUT_OF_STOCK'] },
+        { key: 'seasonal', label: 'Seasonal', types: ['SEASONAL_REMINDER'] },
+        { key: 'other',    label: 'Other',    types: [] },
+    ];
+
+    var groups = role === 'PRODUCER' ? PRODUCER_GROUPS : CUSTOMER_GROUPS;
+
+    function resolveUrl(type, title) {
+        var m = title ? title.match(/#(\d+)/) : null;
+        var id = m ? m[1] : null;
+        if (role === 'PRODUCER') {
+            if (type === 'ORDER_PLACED')                                   return id ? '/dashboard/orders/' + id + '/' : '/dashboard/orders/';
+            if (type === 'LOW_STOCK' || type === 'OUT_OF_STOCK')           return '/dashboard/';
+            if (type === 'SEASONAL_REMINDER')                              return '/dashboard/';
+            if (type === 'PAYMENT_RECEIVED')                               return '/dashboard/orders/';
+        } else {
+            if (type === 'ORDER_CONFIRMED' || type === 'ORDER_READY' ||
+                type === 'ORDER_DELIVERED' || type === 'ORDER_CANCELLED')   return '/orders/';
+            if (type === 'PAYMENT_RECEIVED' || type === 'ORDER_SUMMARY' ||
+                type === 'PAYMENT_FAILED' || type === 'RECURRING_ORDER_PLACED') return id ? '/orders/customer/' + id + '/' : '/orders/';
+            if (type === 'RECURRING_ORDER_PAUSED' ||
+                type === 'RECURRING_ORDER_REMINDER')                        return id ? '/orders/recurring/' + id + '/' : '/orders/';
+            if (type === 'SURPLUS_DEAL')                                    return '/browse/';
+        }
+        return null;
+    }
+
+    function relativeTime(iso) {
+        var diff = (Date.now() - new Date(iso).getTime()) / 1000;
+        if (diff < 60)    return 'just now';
+        if (diff < 3600)  return Math.floor(diff/60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+        return Math.floor(diff/86400) + 'd ago';
+    }
+
+    function getCsrf() {
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+    }
+
+    function markRead(id) {
+        fetch('/notifications/' + id + '/read/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+        }).catch(function(){});
+    }
+
+    function groupOf(type) {
+        for (var i = 0; i < groups.length - 1; i++) {
+            if (groups[i].types.indexOf(type) !== -1) return groups[i].key;
+        }
+        return 'other';
+    }
+
+    function buildCategoryPills(items) {
+        var seen = new Set();
+        groups.forEach(function(g) {
+            if (g.key === 'other') return;
+            var has = items.some(function(n) { return groupOf(n.notification_type) === g.key; });
+            if (has) seen.add(g.key);
+        });
+        var container = document.getElementById('notif-category-pills');
+        container.innerHTML = '';
+        if (seen.size < 2) return;
+        var all = document.createElement('button');
+        all.className = 'notif-filter-pill active';
+        all.dataset.filter = 'group';
+        all.dataset.value = 'all';
+        all.textContent = 'All categories';
+        container.appendChild(all);
+        groups.forEach(function(g) {
+            if (!seen.has(g.key)) return;
+            var btn = document.createElement('button');
+            btn.className = 'notif-filter-pill';
+            btn.dataset.filter = 'group';
+            btn.dataset.value = g.key;
+            btn.textContent = g.label;
+            container.appendChild(btn);
+        });
+    }
+
+    function applyFilters() {
+        var filtered = allItems.filter(function(n) {
+            if (activeRead === 'unread' && n.is_read) return false;
+            if (activeGroup !== 'all' && groupOf(n.notification_type) !== activeGroup) return false;
+            return true;
+        });
+        renderItems(filtered);
+        document.getElementById('notif-result-count').textContent =
+            filtered.length + ' notification' + (filtered.length !== 1 ? 's' : '');
+    }
+
+    function renderItems(items) {
+        var byGroup = {};
+        groups.forEach(function(g) { byGroup[g.key] = []; });
+        items.forEach(function(n) { byGroup[groupOf(n.notification_type)].push(n); });
+
+        var content = document.getElementById('notif-page-content');
+        content.innerHTML = '';
+
+        var hasAny = false;
+        groups.forEach(function(g) {
+            var list = byGroup[g.key];
+            if (!list.length) return;
+            hasAny = true;
+
+            var section = document.createElement('div');
+            section.className = 'notif-group';
+            var header = document.createElement('div');
+            header.className = 'notif-group-title';
+            header.textContent = g.label;
+            section.appendChild(header);
+
+            list.forEach(function(n) {
+                var url = resolveUrl(n.notification_type, n.title);
+                var card = document.createElement('div');
+                card.className = 'notif-card' + (n.is_read ? '' : ' unread') + (url ? ' has-link' : '');
+                card.id = 'notif-' + n.id;
+
+                var safeMsg = (n.message || '')
+                    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+                card.innerHTML =
+                    '<div class="notif-card-dot"></div>' +
+                    '<div class="notif-card-body">' +
+                        '<div class="notif-card-title">' + (n.title || n.notification_type) + '</div>' +
+                        '<div class="notif-card-msg">' + safeMsg + '</div>' +
+                        '<div class="notif-card-meta">' +
+                            '<span class="notif-card-time">' + relativeTime(n.created_at) + '</span>' +
+                            (url ? '<span class="notif-card-link-hint">View details →</span>' : '') +
+                        '</div>' +
+                    '</div>';
+
+                if (url) {
+                    card.addEventListener('click', function() {
+                        if (!n.is_read) markRead(n.id);
+                        window.location.href = url;
+                    });
+                } else if (!n.is_read) {
+                    card.addEventListener('click', function() {
+                        markRead(n.id);
+                        card.classList.remove('unread');
+                    });
+                }
+
+                section.appendChild(card);
+            });
+
+            content.appendChild(section);
+        });
+
+        if (!hasAny) {
+            content.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:3rem 0;">No notifications match your filters.</p>';
+        }
+
+        if (highlightId) {
+            var el = document.getElementById('notif-' + highlightId);
+            if (el) {
+                el.classList.add('highlight');
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                var notif = items.find(function(n) { return String(n.id) === highlightId; });
+                if (notif && !notif.is_read) markRead(highlightId);
+            }
+        }
+    }
+
+    function initPage(items) {
+        allItems = items;
+        document.getElementById('notif-page-loading').style.display = 'none';
+        document.getElementById('notif-page-content').style.display = 'block';
+        document.getElementById('notif-filter-bar').style.display = 'flex';
+        buildCategoryPills(items);
+        applyFilters();
+    }
+
+    document.addEventListener('click', function(e) {
+        var pill = e.target.closest('.notif-filter-pill');
+        if (!pill) return;
+        var filter = pill.dataset.filter;
+        var value  = pill.dataset.value;
+        document.querySelectorAll('.notif-filter-pill[data-filter="' + filter + '"]')
+            .forEach(function(p) { p.classList.remove('active'); });
+        pill.classList.add('active');
+        if (filter === 'read')  activeRead  = value;
+        if (filter === 'group') activeGroup = value;
+        applyFilters();
+    });
+
+    fetch('/notifications/list/')
+        .then(function(r) { return r.json(); })
+        .then(initPage)
+        .catch(function() {
+            document.getElementById('notif-page-loading').textContent = 'Could not load notifications.';
+        });
+
+    document.getElementById('page-mark-all').addEventListener('click', function() {
+        fetch('/notifications/read-all/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+        }).then(function() {
+            document.querySelectorAll('.notif-card.unread').forEach(function(el) {
+                el.classList.remove('unread');
+            });
+        }).catch(function(){});
+    });
+})();
+</script>
+{% endblock %}

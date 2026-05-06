@@ -3,10 +3,26 @@
 {% block title %}Checkout — BRFN{% endblock %}
 
 {% block extra_styles %}
+.dashboard-header {
+    background: var(--nav-bg);
+    padding: 3rem 0;
+    color: #fff;
+    margin-bottom: 2rem;
+}
+.dashboard-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+.dashboard-title h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
 /* -- BREADCRUMB -- */
 .breadcrumb {
-    padding: 1rem 0;
-    margin-top: 1.5rem;
     background: none;
     font-size: 0.8rem;
     color: var(--text-muted);
@@ -529,6 +545,16 @@ box-sizing: border-box;
 {% endblock %}
 
 {% block content %}
+<section class="dashboard-header">
+    <div class="container dashboard-header-inner">
+        <div class="dashboard-title">
+            <h1>Checkout & Proceed To Payment</h1>
+            <p>View your order summary and set up delivery/collection Information.</p>
+        </div>
+        <a href="/basket/" class="btn-secondary" style="text-decoration: none;">← Return to modify basket...</a>
+    </div>
+</section>
+
 <div class="container">
 
     {% if error %}
@@ -546,11 +572,7 @@ box-sizing: border-box;
         <a href="/basket/">My Basket</a>
         <span>></span>
         Checkout
-    </nav>
-
-    <h1 class="checkout-header">View Order Summary & Proceed To Checkout</h1>
-
-    <a href="/basket/" class="btn-secondary" style="text-decoration: none;">← Return to modify basket...</a>
+    </nav>    
 
     <!-- Group added order items by producer -->
     <form method="POST" enctype="multipart/form-data" action="/orders/place/">

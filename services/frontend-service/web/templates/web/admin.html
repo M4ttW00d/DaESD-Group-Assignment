@@ -687,6 +687,7 @@
         <button class="tab-btn" onclick="switchTab('commission', this)">Commission</button>
         <button class="tab-btn" onclick="switchTab('foodmiles', this)">Food Miles</button>
         <button class="tab-btn" onclick="switchTab('settlements', this)">Settlements{% if unsettled_count %} <span style="background:#e8f5ee;color:#00622e;border-radius:10px;padding:1px 7px;font-size:0.72rem;">{{ unsettled_count }} pending</span>{% endif %}</button>
+        <button class="tab-btn" onclick="switchTab('notifications', this)">Notifications</button>
     </div>
 
     <!-- Users Tab -->
@@ -1149,6 +1150,177 @@
         {% endif %}
     </div>
 
+    <!-- Notifications Tab -->
+    <div id="tab-notifications" class="tab-panel">
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
+            <button id="notif-subtab-notifs" onclick="switchNotifSubtab('notifs')" style="padding:0.5rem 1.2rem;font-size:0.83rem;font-weight:700;border:none;border-bottom:2px solid var(--green);background:none;color:var(--green);cursor:pointer;">In-App &amp; Email</button>
+            <button id="notif-subtab-emails" onclick="switchNotifSubtab('emails')" style="padding:0.5rem 1.2rem;font-size:0.83rem;font-weight:700;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);cursor:pointer;">Email Log</button>
+        </div>
+
+        <!-- Sub-panel: notifications -->
+        <div id="notif-subpanel-notifs">
+        <div class="date-filter-bar" style="flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TYPE</label>
+                <select id="notif-filter-type" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All types</option>
+                    <option value="ORDER_PLACED">Order Placed</option>
+                    <option value="ORDER_CONFIRMED">Order Confirmed</option>
+                    <option value="ORDER_READY">Order Ready</option>
+                    <option value="ORDER_DELIVERED">Order Delivered</option>
+                    <option value="ORDER_CANCELLED">Order Cancelled</option>
+                    <option value="PAYMENT_RECEIVED">Payment Received</option>
+                    <option value="PAYMENT_FAILED">Payment Failed</option>
+                    <option value="ORDER_SUMMARY">Order Summary</option>
+                    <option value="LOW_STOCK">Low Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
+                    <option value="SURPLUS_DEAL">Surplus Deal</option>
+                    <option value="SEASONAL_REMINDER">Seasonal Reminder</option>
+                    <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
+                    <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
+                    <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                    <option value="BULK_ORDER_PLACED">Bulk Order Placed</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">RECIPIENT</label>
+                <select id="notif-filter-role" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All recipients</option>
+                    <option value="customer">Customer</option>
+                    <option value="producer">Producer</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">EMAIL SENT</label>
+                <select id="notif-filter-email" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All</option>
+                    <option value="true">Email sent</option>
+                    <option value="false">No email</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">USER ID</label>
+                <input id="notif-filter-user" type="number" placeholder="Recipient ID" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;width:110px;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">FROM</label>
+                <input id="notif-filter-from" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TO</label>
+                <input id="notif-filter-to" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <button onclick="loadNotifications()" style="padding:0.4rem 1rem;background:var(--green);color:#fff;border:none;border-radius:5px;font-size:0.82rem;font-weight:700;cursor:pointer;">Apply</button>
+            <button onclick="clearNotifFilters()" style="padding:0.4rem 0.8rem;background:none;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;cursor:pointer;color:var(--text-muted);">Clear</button>
+            <span id="notif-count-label" style="margin-left:auto;font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+
+        <div id="notif-admin-loading" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.9rem;">Select filters and click Apply, or load all.</div>
+        <div id="notif-admin-table-wrap" style="display:none;overflow-x:auto;">
+            <table class="data-table" id="notif-admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Recipient</th>
+                        <th>Type</th>
+                        <th>Title</th>
+                        <th>In-App</th>
+                        <th>Email Sent</th>
+                        <th>Read</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="notif-admin-tbody"></tbody>
+            </table>
+        </div>
+        </div>
+
+        <!-- Sub-panel: email logs -->
+        <div id="notif-subpanel-emails" style="display:none;">
+        <div class="date-filter-bar" style="flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TYPE</label>
+                <select id="email-filter-type" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All types</option>
+                    <option value="ORDER_PLACED">Order Placed</option>
+                    <option value="ORDER_CONFIRMED">Order Confirmed</option>
+                    <option value="ORDER_READY">Order Ready</option>
+                    <option value="ORDER_DELIVERED">Order Delivered</option>
+                    <option value="ORDER_CANCELLED">Order Cancelled</option>
+                    <option value="PAYMENT_RECEIVED">Payment Received</option>
+                    <option value="PAYMENT_FAILED">Payment Failed</option>
+                    <option value="ORDER_SUMMARY">Order Summary</option>
+                    <option value="LOW_STOCK">Low Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
+                    <option value="SURPLUS_DEAL">Surplus Deal</option>
+                    <option value="SEASONAL_REMINDER">Seasonal Reminder</option>
+                    <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
+                    <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
+                    <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                    <option value="BULK_ORDER_PLACED">Bulk Order Placed</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">STATUS</label>
+                <select id="email-filter-status" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All</option>
+                    <option value="SENT">Sent</option>
+                    <option value="FAILED">Failed</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">RECIPIENT EMAIL</label>
+                <input id="email-filter-recipient" type="text" placeholder="e.g. user@example.com" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;width:170px;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">FROM</label>
+                <input id="email-filter-from" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TO</label>
+                <input id="email-filter-to" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <button onclick="loadEmailLogs()" style="padding:0.4rem 1rem;background:var(--green);color:#fff;border:none;border-radius:5px;font-size:0.82rem;font-weight:700;cursor:pointer;">Apply</button>
+            <button onclick="clearEmailFilters()" style="padding:0.4rem 0.8rem;background:none;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;cursor:pointer;color:var(--text-muted);">Clear</button>
+            <span id="email-count-label" style="margin-left:auto;font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+
+        <div id="email-log-loading" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.9rem;">Select filters and click Apply, or load all.</div>
+        <div id="email-log-table-wrap" style="display:none;overflow-x:auto;">
+            <table class="data-table" id="email-log-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Recipient</th>
+                        <th>Subject</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Sent At</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="email-log-tbody"></tbody>
+            </table>
+        </div>
+        </div>
+    </div>
+
+<!-- View Email Modal -->
+<div class="modal-overlay" id="email-preview-modal" style="display:none;align-items:center;justify-content:center;z-index:1000;">
+    <div style="background:var(--bg);border-radius:10px;width:680px;max-width:96vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);">
+            <div>
+                <div style="font-weight:700;font-size:0.95rem;" id="email-preview-subject"></div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;" id="email-preview-meta"></div>
+            </div>
+            <button onclick="closeEmailPreview()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);line-height:1;">&times;</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:1.5rem;">
+            <iframe id="email-preview-frame" style="width:100%;border:none;min-height:420px;"></iframe>
+        </div>
+    </div>
+</div>
 </div>
 <br><br>
 
@@ -1232,7 +1404,7 @@
             </div>
 
             <!-- Community Group Representative profile fields -->
-            <div id="modal-community-fields">
+            <div id="modal-community-fields" style="display:none;">
                 <p class="modal-section-title">Community Group Representative Profile</p>
                 <div class="form-row">
                     <div class="form-group">
@@ -1482,70 +1654,32 @@ function toggleModalProfileFields(role) {
     document.getElementById('modal-community-fields').style.display = role === 'COMMUNITY-GROUP-REPRESENTATIVE' ? '' : 'none';
 }
 
-function copySessionId(sessionId, btn) {
-    navigator.clipboard.writeText(sessionId).then(() => {
-        btn.classList.add('copied');
-        btn.textContent = 'Copied!';
-        setTimeout(() => {
-            btn.classList.remove('copied');
-            btn.textContent = 'Copy';
-        }, 1500);
-    });
-}
-
-function copyToClipboard(text, btn) {
-    copySessionId(text, btn);
-}
-
-function sortTableByCol(tableId, colIndex) {
-    sortTable(tableId, colIndex);
-}
-
-function copySessionId(sessionId, btn) {
-    navigator.clipboard.writeText(sessionId).then(() => {
-        btn.classList.add('copied');
-        btn.textContent = 'Copied!';
-        setTimeout(() => {
-            btn.classList.remove('copied');
-            btn.textContent = 'Copy';
-        }, 1500);
-    });
-}
-
-function copyToClipboard(text, btn) {
-    copySessionId(text, btn);
-}
-
-function sortTableByCol(tableId, colIndex) {
-    sortTable(tableId, colIndex);
-}
-
 function openEditModalFromBtn(userId) {
     const data = JSON.parse(document.getElementById('user-data-' + userId).textContent);
     openEditModal(data.id, data.username, data.email, data.phone, data.role,
-        data.firstName, data.lastName, data.organizationName, data.organizationType,
-        data.customerDeliveryAddress, data.communityDeliveryAddress, data.customerPostcode, data.communityPostcode, data.businessName,
-        data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId);
+        data.firstName, data.lastName, data.customerDeliveryAddress, data.customerPostcode,
+        data.businessName, data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId,
+        data.organizationName, data.organizationType, data.communityDeliveryAddress, data.communityPostcode);
 }
 
-function openEditModal(id, username, email, phone, role, firstName, lastName, organizationName, organizationType, customerDeliveryAddress, communityDeliveryAddress, customerPostcode, communityPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId) {
-    document.getElementById('edit-username').value = username;
-    document.getElementById('edit-email').value = email;
-    document.getElementById('edit-phone').value = phone;
-    document.getElementById('edit-role').value = role;
-    document.getElementById('edit-first-name').value = firstName;
-    document.getElementById('edit-last-name').value = lastName;
-    document.getElementById('edit-organization-name').value = organizationName;
-    document.getElementById('edit-organization-type').value = organizationType;
-    document.getElementById('edit-customer-delivery-address').value = customerDeliveryAddress;
-    document.getElementById('edit-community-delivery-address').value = communityDeliveryAddress;
-    document.getElementById('edit-customer-postcode').value = customerPostcode;
-    document.getElementById('edit-community-postcode').value = communityPostcode;
-    document.getElementById('edit-business-name').value = businessName;
-    document.getElementById('edit-business-address').value = businessAddress;
-    document.getElementById('edit-producer-postcode').value = producerPostcode;
-    document.getElementById('edit-bio').value = bio;
+function openEditModal(id, username, email, phone, role, firstName, lastName, customerDeliveryAddress, customerPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId, organizationName, organizationType, communityDeliveryAddress, communityPostcode) {
+    document.getElementById('edit-username').value = username || '';
+    document.getElementById('edit-email').value = email || '';
+    document.getElementById('edit-phone').value = phone || '';
+    document.getElementById('edit-role').value = role || '';
+    document.getElementById('edit-first-name').value = firstName || '';
+    document.getElementById('edit-last-name').value = lastName || '';
+    document.getElementById('edit-customer-delivery-address').value = customerDeliveryAddress || '';
+    document.getElementById('edit-customer-postcode').value = customerPostcode || '';
+    document.getElementById('edit-business-name').value = businessName || '';
+    document.getElementById('edit-business-address').value = businessAddress || '';
+    document.getElementById('edit-producer-postcode').value = producerPostcode || '';
+    document.getElementById('edit-bio').value = bio || '';
     document.getElementById('edit-stripe-account-id').value = stripeAccountId || '';
+    document.getElementById('edit-organization-name').value = organizationName || '';
+    document.getElementById('edit-organization-type').value = organizationType || '';
+    document.getElementById('edit-community-delivery-address').value = communityDeliveryAddress || '';
+    document.getElementById('edit-community-postcode').value = communityPostcode || '';
     document.getElementById('edit-user-form').action = '/admin-dashboard/users/' + id + '/edit/';
     toggleModalProfileFields(role);
     document.getElementById('edit-modal').classList.add('open');
@@ -1555,13 +1689,196 @@ function closeEditModal() {
     document.getElementById('edit-modal').classList.remove('open');
 }
 
-function toggleSettlementDetail(id) {
-    const row = document.getElementById(id);
-    if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
-}
-
 document.getElementById('edit-modal').addEventListener('click', function(e) {
     if (e.target === this) closeEditModal();
 });
+
+var userMap = {};
+{% for u in users %}userMap[{{ u.id }}] = '{{ u.username|escapejs }}';{% endfor %}
+
+var emailPreviewCache = {};
+
+function relativeTime(iso) {
+    var diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)    return 'just now';
+    if (diff < 3600)  return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+}
+
+var PRODUCER_TYPES = new Set([
+    'ORDER_PLACED', 'LOW_STOCK', 'OUT_OF_STOCK', 'SURPLUS_DEAL',
+    'SEASONAL_REMINDER', 'SETTLEMENT_READY', 'RECURRING_ORDER_PLACED'
+]);
+var CUSTOMER_TYPES = new Set([
+    'ORDER_CONFIRMED', 'ORDER_READY', 'ORDER_DELIVERED', 'ORDER_CANCELLED',
+    'ORDER_UPDATE', 'PAYMENT_RECEIVED', 'PAYMENT_FAILED', 'ORDER_SUMMARY',
+    'RECURRING_ORDER_REMINDER', 'RECURRING_ORDER_PAUSED'
+]);
+
+function loadNotifications() {
+    var params = new URLSearchParams();
+    var type  = document.getElementById('notif-filter-type').value;
+    var role  = document.getElementById('notif-filter-role').value;
+    var email = document.getElementById('notif-filter-email').value;
+    var user  = document.getElementById('notif-filter-user').value;
+    var from  = document.getElementById('notif-filter-from').value;
+    var to    = document.getElementById('notif-filter-to').value;
+    if (type)  params.set('type', type);
+    if (email) params.set('email_sent', email);
+    if (user)  params.set('recipient_id', user);
+    if (from)  params.set('date_from', from);
+    if (to)    params.set('date_to', to);
+
+    document.getElementById('notif-admin-loading').textContent = 'Loading…';
+    document.getElementById('notif-admin-loading').style.display = 'block';
+    document.getElementById('notif-admin-table-wrap').style.display = 'none';
+
+    fetch('/admin-dashboard/notifications/?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(items) {
+            if (role === 'producer') items = items.filter(function(n) { return PRODUCER_TYPES.has(n.notification_type); });
+            else if (role === 'customer') items = items.filter(function(n) { return CUSTOMER_TYPES.has(n.notification_type); });
+            var tbody = document.getElementById('notif-admin-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('notif-count-label').textContent = items.length + ' result' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No notifications found.</td></tr>';
+            } else {
+                items.forEach(function(n) {
+                    var recipient = userMap[n.recipient_id] ? userMap[n.recipient_id] + ' (' + n.recipient_id + ')' : 'User ' + n.recipient_id;
+                    var typeBadge = '<span style="font-size:0.75rem;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--green-light);color:var(--green);">' + n.notification_type.replace(/_/g, ' ') + '</span>';
+                    var emailBadge = n.email_sent
+                        ? '<span style="color:#1a7a42;font-weight:700;">✓ Sent</span>'
+                        : '<span style="color:var(--text-muted);">—</span>';
+                    var inAppBadge = n.show_in_app
+                        ? '<span style="color:#1a7a42;">✓</span>'
+                        : '<span style="color:var(--text-muted);">—</span>';
+                    var readBadge = n.is_read
+                        ? '<span style="color:var(--text-muted);">Read</span>'
+                        : '<span style="color:#00622e;font-weight:700;">Unread</span>';
+                    var emailViewBtn = '';
+                    if (n.email_log) {
+                        var cacheKey = 'notif-' + n.id;
+                        emailPreviewCache[cacheKey] = n.email_log;
+                        emailViewBtn = '<button onclick="openEmailPreviewByKey(\'' + cacheKey + '\')" style="padding:3px 10px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;font-size:0.78rem;">View Email</button>';
+                    }
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + n.id + '</td>' +
+                        '<td>' + recipient + '</td>' +
+                        '<td>' + typeBadge + '</td>' +
+                        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (n.title || '') + '">' + (n.title || '—') + '</td>' +
+                        '<td style="text-align:center;">' + inAppBadge + '</td>' +
+                        '<td style="text-align:center;">' + emailBadge + '</td>' +
+                        '<td style="text-align:center;">' + readBadge + '</td>' +
+                        '<td style="white-space:nowrap;">' + relativeTime(n.created_at) + '</td>' +
+                        '<td>' + emailViewBtn + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+            document.getElementById('notif-admin-loading').style.display = 'none';
+            document.getElementById('notif-admin-table-wrap').style.display = 'block';
+        })
+        .catch(function() {
+            document.getElementById('notif-admin-loading').textContent = 'Could not load notifications.';
+        });
+}
+
+function clearNotifFilters() {
+    document.getElementById('notif-filter-type').value = '';
+    document.getElementById('notif-filter-role').value = '';
+    document.getElementById('notif-filter-email').value = '';
+    document.getElementById('notif-filter-user').value = '';
+    document.getElementById('notif-filter-from').value = '';
+    document.getElementById('notif-filter-to').value = '';
+    document.getElementById('notif-count-label').textContent = '';
+    document.getElementById('notif-admin-loading').textContent = 'Select filters and click Apply, or load all.';
+    document.getElementById('notif-admin-loading').style.display = 'block';
+    document.getElementById('notif-admin-table-wrap').style.display = 'none';
+}
+
+function switchNotifSubtab(name) {
+    document.getElementById('notif-subpanel-notifs').style.display = name === 'notifs' ? 'block' : 'none';
+    document.getElementById('notif-subpanel-emails').style.display = name === 'emails' ? 'block' : 'none';
+    document.getElementById('notif-subtab-notifs').style.borderBottomColor = name === 'notifs' ? 'var(--green)' : 'transparent';
+    document.getElementById('notif-subtab-notifs').style.color = name === 'notifs' ? 'var(--green)' : 'var(--text-muted)';
+    document.getElementById('notif-subtab-emails').style.borderBottomColor = name === 'emails' ? 'var(--green)' : 'transparent';
+    document.getElementById('notif-subtab-emails').style.color = name === 'emails' ? 'var(--green)' : 'var(--text-muted)';
+    if (name === 'emails' && !document.getElementById('email-log-table-wrap').style.display.includes('block')) {
+        loadEmailLogs();
+    }
+}
+
+function loadEmailLogs() {
+    var params = new URLSearchParams();
+    var type      = document.getElementById('email-filter-type').value;
+    var status    = document.getElementById('email-filter-status').value;
+    var recipient = document.getElementById('email-filter-recipient').value;
+    var from      = document.getElementById('email-filter-from').value;
+    var to        = document.getElementById('email-filter-to').value;
+    if (type)      params.set('type', type);
+    if (status)    params.set('status', status);
+    if (recipient) params.set('recipient_email', recipient);
+    if (from)      params.set('date_from', from);
+    if (to)        params.set('date_to', to);
+
+    document.getElementById('email-log-loading').textContent = 'Loading…';
+    document.getElementById('email-log-loading').style.display = 'block';
+    document.getElementById('email-log-table-wrap').style.display = 'none';
+
+    fetch('/admin-dashboard/email-logs/?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(items) {
+            var tbody = document.getElementById('email-log-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('email-count-label').textContent = items.length + ' result' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No email logs found.</td></tr>';
+            } else {
+                items.forEach(function(log) {
+                    var statusBadge = log.status === 'SENT'
+                        ? '<span style="color:#1a7a42;font-weight:700;">✓ Sent</span>'
+                        : '<span style="color:#c0392b;font-weight:700;">✗ Failed</span>';
+                    var typeParts = (log.subject || '').replace('BRFN: ', '');
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = [
+                        '<td>' + new Date(log.sent_at).toLocaleString() + '</td>',
+                        '<td>' + statusBadge + '</td>',
+                        '<td>' + (log.notification_id || '—') + '</td>',
+                        '<td>' + (log.recipient_email || '—') + '</td>',
+                        '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (log.subject || '') + '</td>',
+                        '<td><button class="btn-sm-edit" onclick="openEmailPreviewByKey(\'log-' + log.id + '\')">View</button></td>',
+                    ].join('');
+                    emailPreviewCache['log-' + log.id] = log.html_body || '<em>No body stored.</em>';
+                    tbody.appendChild(tr);
+                });
+            }
+            document.getElementById('email-log-loading').style.display = 'none';
+            document.getElementById('email-log-table-wrap').style.display = 'block';
+        })
+        .catch(function() {
+            document.getElementById('email-log-loading').textContent = 'Failed to load email logs.';
+        });
+}
+
+function openEmailPreviewByKey(key) {
+    var html = emailPreviewCache[key];
+    if (!html) { return; }
+    var modal = document.getElementById('email-preview-modal');
+    var frame = document.getElementById('email-preview-frame');
+    frame.srcdoc = html;
+    modal.style.display = 'flex';
+}
+
+function closeEmailPreview() {
+    document.getElementById('email-preview-modal').style.display = 'none';
+    document.getElementById('email-preview-frame').srcdoc = '';
+}
+
+document.getElementById('email-preview-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEmailPreview();
+});
+
 </script>
 {% endblock %}

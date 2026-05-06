@@ -8,6 +8,7 @@ from urllib.parse import quote
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 
+
 # Base URL of the platform API service — no trailing slash, no /api suffix
 PLATFORM_API_URL = os.environ.get('PLATFORM_API_URL', 'http://platform-api:8002')
 
@@ -17,8 +18,8 @@ PAYMENT_GATEWAY_URL = os.environ.get('PAYMENT_GATEWAY_URL', 'http://payment-gate
 PAYMENT_GATEWAY_API_URL = os.environ.get('PAYMENT_GATEWAY_API_URL', PAYMENT_GATEWAY_URL).rstrip('/')
 NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
 
+"""Fetch lat/lng for a UK postcode from postcodes.io. Returns (lat, lng) or (None, None)."""
 def _get_postcode_coords(postcode):
-    """Fetch lat/lng for a UK postcode from postcodes.io. Returns (lat, lng) or (None, None)."""
     try:
         resp = requests.get(
             f"https://api.postcodes.io/postcodes/{postcode.strip().replace(' ', '%20')}",
@@ -32,8 +33,8 @@ def _get_postcode_coords(postcode):
         pass
     return None, None
 
+"""Calculate straight-line distance in miles between two lat/lng points."""
 def _haversine_miles(lat1, lon1, lat2, lon2):
-    """Calculate straight-line distance in miles between two lat/lng points."""
     R = 3958.8
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1
@@ -41,8 +42,8 @@ def _haversine_miles(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
     return R * 2 * math.asin(math.sqrt(a))
 
+"""Returns distance in miles as a float, or None if postcodes can't be resolved."""
 def _calculate_food_miles(customer_postcode, producer_postcode):
-    """Returns distance in miles as a float, or None if postcodes can't be resolved."""
     if not customer_postcode or not producer_postcode:
         return None
     lat1, lon1 = _get_postcode_coords(customer_postcode)
@@ -148,6 +149,84 @@ def _extract_error_from_response(response, default_message):
     return default_message
 
 
+def _send_payment_notifications(request, order):
+    sub_orders     = order.get('orders', [])
+    total_amount   = order.get('total_amount', '0.00')
+    customer_order_id = order.get('id', '')
+    customer_email = sub_orders[0].get('customer_email', '') if sub_orders else ''
+    customer_id    = request.session.get('user_id')
+
+    if not customer_id:
+        return
+
+    is_bulk = request.session.get('role') == 'COMMUNITY-GROUP-REPRESENTATIVE'
+    summary_lines = []
+    for sub in sub_orders:
+        producer_name = sub.get('producer_name') or 'Producer'
+        summary_lines.append(f"\n{producer_name}:")
+        for item in sub.get('items', []):
+            name  = item.get('product_name', 'Item')
+            qty   = item.get('quantity', 1)
+            price = item.get('price_at_sale', '0.00')
+            summary_lines.append(f"\n  • {name} x{qty} — £{price}")
+        collection = sub.get('collection_type', '')
+        delivery   = sub.get('delivery_date', '')
+        if collection:
+            summary_lines.append(f"\n  Collection: {collection}")
+        if delivery:
+            summary_lines.append(f"\n  Delivery date: {delivery}")
+        delivery_instruction = sub.get('delivery_instruction', '')
+        if is_bulk and delivery_instruction:
+            summary_lines.append(f"\n  Instructions: {delivery_instruction}")
+        if is_bulk:
+            producer_email = sub.get('producer_email', '')
+            producer_phone = sub.get('producer_phone', '')
+            if producer_email:
+                summary_lines.append(f"\n  Contact: {producer_email}")
+            if producer_phone:
+                summary_lines.append(f"\n  Phone: {producer_phone}")
+
+    order_summary_message = (
+        f"Order #{customer_order_id} — Total: £{total_amount}"
+        + "".join(summary_lines)
+    )
+
+    secret = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')
+    headers = {'X-Service-Secret': secret}
+
+    try:
+        requests.post(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/",
+            json={
+                'user':    customer_id,
+                'email':   customer_email,
+                'type':    'PAYMENT_RECEIVED',
+                'title':   f'Payment Confirmed — Order #{customer_order_id}',
+                'message': f'Your payment of £{total_amount} was successful. Your order #{customer_order_id} has been placed.',
+            },
+            headers=headers,
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+    try:
+        requests.post(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/",
+            json={
+                'user':    customer_id,
+                'email':   customer_email,
+                'type':    'ORDER_SUMMARY',
+                'title':   f'Order Summary — #{customer_order_id}',
+                'message': order_summary_message,
+            },
+            headers=headers,
+            timeout=5,
+        )
+    except Exception:
+        pass
+
+
 def _finalize_pending_order(request, *, payment_id, session_id, order_reference):
     pending_checkout = request.session.get('pending_checkout')
     if not isinstance(pending_checkout, dict):
@@ -211,7 +290,6 @@ def _finalize_pending_order(request, *, payment_id, session_id, order_reference)
     if place_resp.status_code == 201:
         customer_order_id = place_resp.json().get('id')
 
-        # Set up recurring order if requested
         pending_checkout = request.session.get('pending_checkout', {})
         if pending_checkout.get('make_recurring'):
             try:
@@ -691,17 +769,175 @@ def profile_view(request):
             except Exception as e:
                 error = f"Unexpected error: {str(e)}"
 
+        elif action == 'update_notification_prefs':
+            user_id = request.session.get('user_id')
+            if user_id:
+                payload = {
+                    'user_id':        user_id,
+                    'email_enabled':  request.POST.get('email_enabled') == 'on',
+                    'in_app_enabled': request.POST.get('in_app_enabled') == 'on',
+                }
+                try:
+                    resp = requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/",
+                        json=payload,
+                        timeout=5
+                    )
+                    if resp.status_code == 200:
+                        success = "Notification preferences saved."
+                    else:
+                        error = "Could not save notification preferences."
+                except Exception as e:
+                    error = f"Unexpected error: {str(e)}"
+
+        elif action == 'update_notification_type_prefs_bulk':
+            user_id = request.session.get('user_id')
+            notification_types = request.POST.getlist('notification_types')
+            if user_id and notification_types:
+                failed = False
+                for ntype in notification_types:
+                    payload = {
+                        'user_id':           user_id,
+                        'notification_type': ntype,
+                        'email_enabled':     request.POST.get(f'email_{ntype}') == 'on',
+                        'in_app_enabled':    request.POST.get(f'in_app_{ntype}') == 'on',
+                    }
+                    try:
+                        resp = requests.post(
+                            f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/types/",
+                            json=payload,
+                            timeout=5
+                        )
+                        if resp.status_code != 200:
+                            failed = True
+                    except Exception:
+                        failed = True
+                success = "Notification preferences saved." if not failed else None
+                if failed:
+                    error = "Some preferences could not be saved."
+
+        elif action == 'update_notification_prefs_all':
+            user_id = request.session.get('user_id')
+            if user_id:
+                global_email  = request.POST.get('email_enabled') == 'on'
+                global_in_app = request.POST.get('in_app_enabled') == 'on'
+                failed = False
+
+                try:
+                    resp = requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/",
+                        json={
+                            'user_id':        user_id,
+                            'email_enabled':  global_email,
+                            'in_app_enabled': global_in_app,
+                        },
+                        timeout=5
+                    )
+                    if resp.status_code != 200:
+                        failed = True
+                except Exception:
+                    failed = True
+
+                notification_types = request.POST.getlist('notification_types')
+                for ntype in notification_types:
+                    type_email  = request.POST.get(f'email_{ntype}') == 'on'
+                    type_in_app = request.POST.get(f'in_app_{ntype}') == 'on'
+                    if not global_email:
+                        type_email = False
+                    if not global_in_app:
+                        type_in_app = False
+                    try:
+                        resp = requests.post(
+                            f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/types/",
+                            json={
+                                'user_id':           user_id,
+                                'notification_type': ntype,
+                                'email_enabled':     type_email,
+                                'in_app_enabled':    type_in_app,
+                            },
+                            timeout=5
+                        )
+                        if resp.status_code != 200:
+                            failed = True
+                    except Exception:
+                        failed = True
+
+                success = "Notification settings saved." if not failed else None
+                if failed:
+                    error = "Some preferences could not be saved."
+
+    notif_prefs = {'email_enabled': True, 'in_app_enabled': True}
+    notif_type_prefs = {}
+    user_id = request.session.get('user_id')
+    if user_id:
+        try:
+            resp = requests.get(
+                f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/",
+                params={'user_id': user_id},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                notif_prefs = resp.json()
+        except Exception:
+            pass
+        try:
+            resp = requests.get(
+                f"{NOTIFICATIONS_API_URL}/api/notifications/preferences/types/",
+                params={'user_id': user_id},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                for tp in resp.json():
+                    notif_type_prefs[tp['notification_type']] = tp
+        except Exception:
+            pass
+
+    CUSTOMER_NOTIFICATION_TYPES = [
+        ('PAYMENT_RECEIVED',          'Payment Confirmed',          'Email confirmation when your payment is successfully processed'),
+        ('PAYMENT_FAILED',            'Payment Failed',             'Email alert when a payment could not be completed'),
+        ('ORDER_SUMMARY',             'Order Summary',              'Itemised order breakdown email sent after a successful payment'),
+        ('SURPLUS_DEAL',              'Surplus Deals',              'Alerts when a producer marks a product as a surplus deal'),
+        ('ORDER_CONFIRMED',           'Order Confirmed',            'Notifications when your order has been confirmed by the producer'),
+        ('ORDER_READY',               'Order Ready',                'Notifications when your order is ready for collection or delivery'),
+        ('ORDER_DELIVERED',           'Order Delivered',            'Notifications when your order has been marked as delivered'),
+        ('ORDER_CANCELLED',           'Order Cancelled',            'Notifications when an order is cancelled'),
+        ('RECURRING_ORDER_REMINDER',  'Recurring Order Reminder',   'Day-before reminder when a recurring order is about to be placed automatically'),
+        ('RECURRING_ORDER_PLACED',    'Recurring Order Placed',     'Confirmation with full order summary when a recurring order fires successfully'),
+        ('RECURRING_ORDER_PAUSED',    'Recurring Order Paused',     'Alert when a recurring order is paused due to an item being unavailable or out of stock'),
+    ]
+    PRODUCER_NOTIFICATION_TYPES = [
+        ('ORDER_PLACED',      'Order Placed',      'Alerts when a customer places a new order with you'),
+        ('LOW_STOCK',         'Low Stock',         'Alerts when a product\'s stock drops below your set threshold'),
+        ('OUT_OF_STOCK',      'Out of Stock',      'Alerts when a product runs out of stock'),
+        ('SEASONAL_REMINDER', 'Seasonal Reminder', 'Reminders when your seasonal products are coming into season'),
+    ]
+
+    role = user.get('role', 'CUSTOMER') if user else 'CUSTOMER'
+    definitions = PRODUCER_NOTIFICATION_TYPES if role == 'PRODUCER' else CUSTOMER_NOTIFICATION_TYPES
+
+    type_prefs_list = []
+    for ntype, label, desc in definitions:
+        tp = notif_type_prefs.get(ntype)
+        type_prefs_list.append({
+            'type':           ntype,
+            'label':          label,
+            'desc':           desc,
+            'email_enabled':  tp['email_enabled']  if tp else notif_prefs.get('email_enabled', True),
+            'in_app_enabled': tp['in_app_enabled'] if tp else notif_prefs.get('in_app_enabled', True),
+            'has_override':   tp is not None,
+        })
+
     return render(request, 'web/profile.html', {
-        'user': user,
-        'error': error,
-        'success': success,
+        'user':             user,
+        'error':            error,
+        'success':          success,
+        'notif_prefs':      notif_prefs,
+        'type_prefs_list':  type_prefs_list,
     })
 
 
 def admin_dashboard(request):
-    """
-    Admin dashboard with tabs for users, products, orders, transactions, and site stats.
-    """
+    """Admin dashboard with tabs for users, products, orders, transactions, and site stats."""
     """Admin dashboard with commission monitoring."""
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
@@ -979,6 +1215,7 @@ def admin_commission_export(request):
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
     orders = []
+    headers = get_auth_headers(request)
 
     try:
         resp_orders = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=headers, timeout=5)
@@ -1699,7 +1936,6 @@ def create_order(request):
             producer_id = key.replace('delivery_instructions_', '')
             delivery_instructions[producer_id] = value.strip() or None
         
-        # Get recurring order details
         make_recurring = request.POST.get('make_recurring') == 'on'
         order_day = request.POST.get('order_day')
         delivery_day = request.POST.get('delivery_day')
@@ -1865,6 +2101,34 @@ def customer_order_history_view(request):
             success = "Payment successful."
     elif payment_status == 'cancelled':
         error = "Payment was cancelled. Your basket is unchanged."
+        if not request.session.get('payment_failed_notified'):
+            request.session['payment_failed_notified'] = True
+            customer_id = request.session.get('user_id')
+            if customer_id:
+                try:
+                    user_resp = requests.get(
+                        f"{PLATFORM_API_URL}/api/auth/me/",
+                        headers=get_auth_headers(request),
+                        timeout=5
+                    )
+                    customer_email = user_resp.json().get('email', '') if user_resp.status_code == 200 else ''
+                except Exception:
+                    customer_email = ''
+                try:
+                    requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                        json={
+                            'user':    customer_id,
+                            'email':   customer_email,
+                            'type':    'PAYMENT_FAILED',
+                            'title':   'Payment Unsuccessful',
+                            'message': 'Your payment could not be completed. Your basket has not been affected — please try again when you are ready.',
+                        },
+                        headers={'X-Service-Secret': os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')},
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
     elif payment_status == 'error':
         error = "Payment did not complete."
 
@@ -2012,8 +2276,8 @@ def write_review_view(request, product_id):
     Allow a customer to write a review for a purchased product from a delivered order.
     """
     token = request.session.get('token')
+    # Redirect or show error, but we return a general response
     if not token:
-        # Redirect or show error, but we return a general response
         return redirect('login')
 
     headers = {'Authorization': f'Bearer {token}'}
@@ -2041,7 +2305,6 @@ def write_review_view(request, product_id):
         
     # POST: Submit review data
     elif request.method == 'POST':
-        # Collect post data
         rating = request.POST.get('rating')
         title = request.POST.get('title', '')
         comment = request.POST.get('comment', '')
@@ -2059,7 +2322,6 @@ def write_review_view(request, product_id):
         review_resp = requests.post(f"{platform_api_url}/api/reviews/", json=payload, headers=headers)
         
         if review_resp.status_code == 201:
-            # Redirect to the product detail page for the given product
             return redirect(f"/products/{product_id}/?success=Your review has been submitted successfully!")
         else:
             try:
@@ -2120,6 +2382,12 @@ def customer_order_detail_view(request, order_id):
         )
         if resp.status_code == 200:
             order = resp.json()
+            # Calculate food miles for DELIVERED delivery orders only
+
+            notif_flag = f'payment_notified_{order_id}'
+            if payment_status == 'success' and not request.session.get(notif_flag):
+                request.session[notif_flag] = True
+                _send_payment_notifications(request, order)
 
             # Food miles stored on each producer order - just sum them up
             if order.get('orders'):
@@ -2216,7 +2484,6 @@ def producer_orders_view(request):
         resp = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=get_auth_headers(request), timeout=5)
         if resp.status_code == 200:
             orders = resp.json()
-            # Calculate food miles for DELIVERED delivery orders only
             try:
                 for order in orders:
                     status = (order.get('status') or '').upper()
@@ -2225,7 +2492,6 @@ def producer_orders_view(request):
                         items = order.get('items', [])
                         customer_postcode = order.get('customer_postcode')
                         if not customer_postcode and items:
-                            # Try to get customer postcode from order data
                             customer_postcode = (order.get('customer_profile') or {}).get('postcode')
                         producer_postcode = None
                         if items:
@@ -2245,11 +2511,6 @@ def producer_orders_view(request):
                                 total_food_miles += miles
             except Exception:
                 pass
-            # Food miles stored on order - just read directly
-            for order in orders:
-                miles = float(order.get('food_miles') or 0)
-                if miles:
-                    total_food_miles += miles
         elif resp.status_code == 401:
             request.session.flush()
             return redirect('/login/')
@@ -2452,6 +2713,12 @@ def delete_farm_story_view(request, story_id):
     return redirect('/dashboard/content/')
 
 
+def notifications_page_view(request):
+    if not request.session.get('user_id'):
+        return redirect('/login/')
+    return render(request, 'web/notifications.html')
+
+
 def notifications_count_view(request):
     from django.http import JsonResponse
     user_id = request.session.get('user_id')
@@ -2522,6 +2789,48 @@ def notifications_mark_all_read_view(request):
         return JsonResponse({'ok': resp.status_code == 200})
     except Exception:
         return JsonResponse({'ok': False})
+
+
+def admin_notifications_view(request):
+    from django.http import JsonResponse
+    import os
+    if request.session.get('role') != 'ADMIN':
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+    secret = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')
+    params = {k: v for k, v in request.GET.items() if k in ('recipient_id', 'type', 'email_sent', 'date_from', 'date_to')}
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/admin/list/",
+            params=params,
+            headers={'X-Service-Secret': secret},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json(), safe=False)
+    except Exception:
+        pass
+    return JsonResponse([], safe=False)
+
+
+def admin_email_logs_view(request):
+    from django.http import JsonResponse
+    import os
+    if request.session.get('role') != 'ADMIN':
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+    secret = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')
+    params = {k: v for k, v in request.GET.items() if k in ('recipient_email', 'type', 'status', 'date_from', 'date_to')}
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/admin/email-logs/",
+            params=params,
+            headers={'X-Service-Secret': secret},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json(), safe=False)
+    except Exception:
+        pass
+    return JsonResponse([], safe=False)
 
 
 def favourite_toggle_view(request, producer_id):

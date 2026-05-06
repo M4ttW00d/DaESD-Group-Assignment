@@ -33,8 +33,10 @@ class OrderSerializer(serializers.ModelSerializer):
     delivery_address = serializers.CharField(source='customer.customer_profile.delivery_address', read_only=True)
     
     # Producer Details
-    producer_name = serializers.CharField(source='producer.producer_profile.business_name', read_only=True)
-    producer_id = serializers.IntegerField(source='producer.id', read_only=True, default=None)
+    producer_id    = serializers.IntegerField(source='producer.id', read_only=True, default=None)
+    producer_email = serializers.CharField(source='producer.email', read_only=True)
+    producer_phone = serializers.CharField(source='producer.phone_number', read_only=True)
+    producer_name  = serializers.CharField(source='producer.producer_profile.business_name', read_only=True)
 
     # Producer specific total
     producer_total = serializers.SerializerMethodField()
@@ -45,8 +47,8 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'customer_order', 'customer', 'customer_username', 'customer_postcode',
             'customer_first_name', 'customer_last_name',
             'customer_phone', 'customer_email', 'delivery_address', 'collection_type',
-            'total_amount', 'commission_total', 'producer_id', 'producer_name', 'producer_total', 'delivery_instruction',
-            'status', 'status_logs', 'delivery_date', 'food_miles', 'created_at', 'items'
+            'total_amount', 'commission_total', 'producer_id', 'producer_email', 'producer_phone', 'producer_name', 'producer_total',
+            'delivery_instruction', 'status', 'status_logs', 'delivery_date', 'food_miles', 'created_at', 'items'
         )
         read_only_fields = ('id', 'customer_order', 'customer', 'total_amount', 'commission_total', 'created_at', 'items', 'producer_total', 'status_logs')
 
@@ -90,6 +92,7 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
             'id', 'customer', 'total_amount', 'commission_total', 'overall_status',
             'total_items', 'orders', 'created_at', 'updated_at'
         )
+        read_only_fields = ('id', 'customer', 'total_amount', 'commission_total', 'created_at', 'updated_at', 'orders', 'overall_status', 'total_items')
 
 class RecurringOrderSerializer(serializers.ModelSerializer):
     items = RecurringOrderItemSerializer(many=True, read_only=True)

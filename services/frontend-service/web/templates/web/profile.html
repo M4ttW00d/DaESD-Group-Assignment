@@ -258,6 +258,106 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                 </form>
             </div>
 
+            <!-- Notification Preferences -->
+            {% if user.role != 'ADMIN' %}
+            <div class="profile-card">
+                <div class="card-title">Notification Preferences</div>
+                <div class="card-subtitle">Control which notifications you receive and how.</div>
+
+                <!-- Single form saves global + per-type in one go -->
+                <form method="post" action="/profile/" id="notif-prefs-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_notification_prefs_all">
+
+                    <!-- Global toggles -->
+                    <p class="form-label" style="margin-bottom:0.75rem;">Global settings</p>
+                    <p class="card-subtitle" style="margin-bottom:0.75rem;">Turning a channel off here disables it for all notification types below.</p>
+                    <div style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1.2rem;">
+                        <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-size:0.9rem; color:var(--text);">
+                            <input type="checkbox" id="global-email" name="email_enabled" {% if notif_prefs.email_enabled %}checked{% endif %}>
+                            Email notifications
+                        </label>
+                        <label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; font-size:0.9rem; color:var(--text);">
+                            <input type="checkbox" id="global-inapp" name="in_app_enabled" {% if notif_prefs.in_app_enabled %}checked{% endif %}>
+                            In-app notifications (bell icon)
+                        </label>
+                    </div>
+
+                    <hr style="border:none; border-top:1px solid var(--border); margin-bottom:1.5rem;">
+
+                    <!-- Per-type toggles -->
+                    <p class="form-label" style="margin-bottom:0.3rem;">Per-notification-type settings</p>
+                    <p class="card-subtitle" style="margin-bottom:1rem;">Fine-tune which alerts you receive within each enabled channel.</p>
+
+                    {% for tp in type_prefs_list %}
+                    <input type="hidden" name="notification_types" value="{{ tp.type }}">
+                    <div class="notif-type-row" style="background:var(--bg); border:1.5px solid var(--border); border-radius:8px; padding:0.85rem 1rem; margin-bottom:0.6rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:nowrap; transition:opacity 0.2s;">
+                        <div style="min-width:0;">
+                            <p style="font-family:'Source Sans 3',sans-serif; font-weight:600; font-size:0.9rem; color:var(--text); margin:0 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tp.label }}</p>
+                            <p style="font-size:0.75rem; color:var(--text-muted); margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tp.desc }}</p>
+                        </div>
+                        <div style="display:flex; gap:1.2rem; align-items:center; flex-shrink:0;">
+                            <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); cursor:pointer;">
+                                <input type="checkbox" class="type-email-cb" name="email_{{ tp.type }}" {% if tp.email_enabled %}checked{% endif %}>
+                                Email
+                            </label>
+                            <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); cursor:pointer;">
+                                <input type="checkbox" class="type-inapp-cb" name="in_app_{{ tp.type }}" {% if tp.in_app_enabled %}checked{% endif %}>
+                                In-app
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn-save" style="margin-top:0.75rem;">Save notification settings</button>
+                </form>
+            </div>
+
+            <script>
+            (function () {
+                const globalEmail = document.getElementById('global-email');
+                const globalInapp = document.getElementById('global-inapp');
+                const rows        = document.querySelectorAll('.notif-type-row');
+
+                function applyGlobalState() {
+                    const emailOn = globalEmail.checked;
+                    const inappOn = globalInapp.checked;
+                    rows.forEach(function (row) {
+                        const emailCb = row.querySelector('.type-email-cb');
+                        const inappCb = row.querySelector('.type-inapp-cb');
+                        // Disable + grey out individual checkboxes when global channel is off
+                        emailCb.disabled = !emailOn;
+                        inappCb.disabled = !inappOn;
+                        row.style.opacity = (emailOn || inappOn) ? '1' : '0.45';
+                    });
+                }
+
+                // When a type checkbox is ticked, ensure the global channel is ON
+                rows.forEach(function (row) {
+                    row.querySelector('.type-email-cb').addEventListener('change', function () {
+                        if (this.checked && !globalEmail.checked) {
+                            globalEmail.checked = true;
+                            applyGlobalState();
+                        }
+                    });
+                    row.querySelector('.type-inapp-cb').addEventListener('change', function () {
+                        if (this.checked && !globalInapp.checked) {
+                            globalInapp.checked = true;
+                            applyGlobalState();
+                        }
+                    });
+                });
+
+                globalEmail.addEventListener('change', applyGlobalState);
+                globalInapp.addEventListener('change', applyGlobalState);
+
+                // Apply on page load
+                applyGlobalState();
+            })();
+            </script>
+
+            {% endif %}
+
             <!-- Delete Account -->
             <div class="profile-card danger-card">
                 <div class="card-title" style="color: #a0422a;">Delete Account</div>
