@@ -296,6 +296,12 @@
             <input type="hidden" name="cancel_order" value="1">
             <button type="submit" class="btn-secondary" style="background-color: #d9534f; color: white;">Cancel Order</button>
         </form>
+        {% elif order.overall_status == 'CANCELLED' %}
+        <form method="post" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="retry_refund" value="1">
+            <button type="submit" class="btn-secondary">Retry Refund</button>
+        </form>
         {% endif %}
     </div>
 

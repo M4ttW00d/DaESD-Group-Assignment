@@ -7,6 +7,7 @@ class Payment(models.Model):
         ('SUCCESS', 'Success'),
         ('FAILED', 'Failed'),
         ('CANCELLED', 'Cancelled'),
+        ('REFUNDED', 'Refunded'),
     ]
 
     order_id = models.CharField(max_length=64, blank=True)

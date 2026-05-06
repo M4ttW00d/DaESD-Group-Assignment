@@ -73,7 +73,10 @@ def list_transactions(request):
         stripe.api_key = settings.STRIPE_SECRET_KEY
         limit = _coerce_limit(request.GET.get('limit'))
 
-        sessions = stripe.checkout.Session.list(limit=limit)
+        sessions = stripe.checkout.Session.list(
+            limit=limit,
+            expand=['data.payment_intent.latest_charge'],
+        )
         session_rows = sessions.data
         session_ids = [s.id for s in session_rows if s.id]
 
@@ -88,6 +91,7 @@ def list_transactions(request):
             local_payment = payments_by_session.get(session_id)
             amount_total = session.amount_total
             created_unix = session.created
+            payment_status = session.payment_status or 'unknown'
 
             # session.metadata is a StripeObject in newer sdk versions – avoid calling
             # .get() on it directly as StripeObject may not support dict-style .get().
@@ -123,10 +127,38 @@ def list_transactions(request):
                 except (TypeError, AttributeError):
                     pass
 
-            # payment_intent may be an expanded PaymentIntent object in newer SDK versions;
-            # cast to str to keep the response JSON-serializable.
+            # payment_intent may be either an id string or an expanded PaymentIntent.
             payment_intent_val = session.payment_intent
-            payment_intent_str = str(payment_intent_val) if payment_intent_val and not isinstance(payment_intent_val, str) else (payment_intent_val or '')
+            payment_intent_str = (
+                str(payment_intent_val)
+                if payment_intent_val and not isinstance(payment_intent_val, str)
+                else (payment_intent_val or '')
+            )
+
+            stripe_refunded = False
+            latest_charge = None
+            if payment_intent_val and not isinstance(payment_intent_val, str):
+                latest_charge = getattr(payment_intent_val, 'latest_charge', None)
+            if latest_charge:
+                amount_refunded = 0
+                refunded_flag = False
+                try:
+                    amount_refunded = int(latest_charge['amount_refunded'] or 0)
+                except (KeyError, TypeError, ValueError, AttributeError):
+                    pass
+                try:
+                    refunded_flag = bool(latest_charge['refunded'])
+                except (KeyError, TypeError, AttributeError):
+                    pass
+                stripe_refunded = refunded_flag or amount_refunded > 0
+
+            if stripe_refunded:
+                display_status = 'REFUNDED'
+                if local_payment and local_payment.status != 'REFUNDED':
+                    local_payment.status = 'REFUNDED'
+                    local_payment.save(update_fields=['status', 'updated_at'])
+            else:
+                display_status = 'REFUNDED' if local_payment and local_payment.status == 'REFUNDED' else payment_status
 
             transactions.append(
                 {
@@ -136,7 +168,8 @@ def list_transactions(request):
                     'customer_email': customer_email,
                     'amount_total': _format_amount(amount_total),
                     'currency': (session.currency or '').upper(),
-                    'payment_status': session.payment_status or 'unknown',
+                    'payment_status': payment_status,
+                    'display_status': display_status,
                     'status': local_payment.status if local_payment else '',
                     'created_at': _format_unix(created_unix),
                     'payment_intent': payment_intent_str,
@@ -316,6 +349,115 @@ def list_settlements(request):
         }
         for s in settlements
     ]})
+
+
+@csrf_exempt
+def update_payment_order_reference(request):
+    """Update a successful payment record to point at the final customer order id."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    final_order_id = str(body.get('order_id') or '').strip()
+    payment_id = str(body.get('payment_id') or '').strip()
+    session_id = str(body.get('session_id') or '').strip()
+
+    if not final_order_id:
+        return JsonResponse({'error': 'order_id is required'}, status=400)
+    if not payment_id and not session_id:
+        return JsonResponse({'error': 'payment_id or session_id is required'}, status=400)
+
+    queryset = Payment.objects.all()
+    if payment_id:
+        queryset = queryset.filter(pk=payment_id)
+    if session_id:
+        queryset = queryset.filter(stripe_session_id=session_id)
+
+    payment = queryset.first()
+    if not payment:
+        return JsonResponse({'error': 'Payment not found'}, status=404)
+
+    payment.order_id = final_order_id
+    payment.save(update_fields=['order_id', 'updated_at'])
+    return JsonResponse({
+        'updated': True,
+        'payment_id': payment.id,
+        'order_id': payment.order_id,
+    })
+
+
+@csrf_exempt
+def refund_by_order(request):
+    """Issue a Stripe refund for the payment tied to a given order_id.
+
+    POST /payments/api/refund/
+    Body: {"order_id": "<CustomerOrder.id>"}
+
+    The link between orders and payments:
+      - When a customer checks out, the frontend sends CustomerOrder.id as order_id
+        to the payment gateway's /payments/api/checkout/ endpoint.
+      - The gateway stores it as Payment.order_id (a string of the integer PK).
+      - So to refund, we look up Payment where order_id = str(customer_order_id)
+        and status = SUCCESS, then call stripe.Refund.create(payment_intent=...).
+    """
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    order_id = str(body.get('order_id') or '').strip()
+    payment_id = str(body.get('payment_id') or '').strip()
+    if not order_id and not payment_id:
+        return JsonResponse({'error': 'order_id or payment_id is required'}, status=400)
+
+    payment = None
+    if order_id:
+        payment = Payment.objects.filter(order_id=order_id, status='SUCCESS').first()
+    if not payment and payment_id:
+        payment = Payment.objects.filter(pk=payment_id, status='SUCCESS').first()
+    if not payment:
+        reference = order_id or payment_id
+        return JsonResponse({'error': f'No successful payment found for reference {reference}'}, status=404)
+
+    if not payment.stripe_payment_intent:
+        return JsonResponse({'error': 'Payment has no Stripe payment intent — cannot refund'}, status=400)
+
+    if not _stripe_is_configured():
+        return JsonResponse({'error': 'Stripe is not configured on this server'}, status=503)
+
+    try:
+        _require_stripe()
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        refund = stripe.Refund.create(
+            payment_intent=payment.stripe_payment_intent,
+            metadata={
+                'order_id': order_id or payment.order_id,
+                'payment_id': str(payment.id),
+                'reason': 'order_cancellation',
+            },
+        )
+        payment.status = 'REFUNDED'
+        payment.save(update_fields=['status', 'updated_at'])
+        return JsonResponse({
+            'refunded': True,
+            'refund_id': refund.id,
+            'amount': str(payment.amount),
+            'currency': payment.currency,
+        })
+    except stripe.error.InvalidRequestError as exc:
+        return JsonResponse({'error': f'Stripe error: {exc}'}, status=400)
+    except stripe.error.StripeError as exc:
+        return JsonResponse({'error': f'Stripe error: {exc}'}, status=400)
+    except Exception as exc:
+        logger.exception('Unexpected error in refund_by_order')
+        return JsonResponse({'error': f'Unexpected error: {exc}'}, status=500)
 
 
 def payment_status(request):
