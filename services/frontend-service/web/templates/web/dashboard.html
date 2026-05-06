@@ -348,7 +348,7 @@ margin-bottom: 0.5rem;
                         <span>per {{ product.unit|default:"item" }}</span>
                     </div>
                     <div class="card-stock-info">
-                        <strong>{{ product.stock_quantity }}</strong><br>in stock
+                        <strong>{% if not product.is_available %}—{% else %}{{ product.stock_quantity }}{% endif %}</strong><br>in stock
                     </div>
                 </div>
             </div>
