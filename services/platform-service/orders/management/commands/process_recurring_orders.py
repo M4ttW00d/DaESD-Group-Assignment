@@ -4,7 +4,7 @@ from django.db import transaction
 from decimal import Decimal
 from collections import defaultdict
 from orders.models import RecurringOrder, CustomerOrder, Order, OrderItem
-from orders.views import calculate_delivery_date
+from orders.views import calculate_delivery_date, _calculate_food_miles
 import requests
 import os
 import sys
@@ -52,9 +52,9 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def _place_order(self, ro, today):
-        customer       = ro.customer
+        customer = ro.customer
         customer_email = customer.email
-        customer_id    = customer.id
+        customer_id = customer.id
 
         # Calculate delivery date: next occurrence of delivery_day after today
         delivery_date = calculate_delivery_date(today, ro.delivery_day)
@@ -120,7 +120,20 @@ class Command(BaseCommand):
 
         for producer, items in items_by_producer.items():
             producer_id    = str(producer.id)
-            collection_type = ro.collection_types.get(producer_id)
+            collection_type = ro.collection_types.get(producer_id, '')
+            
+            food_miles = None
+            if collection_type and 'collect' not in collection_type.lower():
+                try:
+                    # Get customer postcode from profile
+                    customer_postcode = (
+                        getattr(customer, 'customer_profile', None) and customer.customer_profile.postcode
+                        or getattr(customer, 'community_profile', None) and customer.community_profile.postcode
+                    )
+                    producer_postcode = producer.producer_profile.postcode
+                    food_miles = _calculate_food_miles(customer_postcode, producer_postcode)
+                except Exception as e:
+                    self.stdout.write(f"Miles calculation failed for RO #{ro.id}: {e}")
 
             order = Order.objects.create(
                 customer_order=customer_order,
@@ -128,6 +141,7 @@ class Command(BaseCommand):
                 producer=producer,
                 delivery_date=delivery_date,
                 collection_type=collection_type,
+                food_miles=food_miles,
             )
 
             subtotal      = Decimal('0.00')

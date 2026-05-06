@@ -189,7 +189,7 @@
         <div id="notif-category-pills"></div>
         <span class="notif-result-count" id="notif-result-count"></span>
     </div>
-    <div id="notif-page-loading">Loading notifications…</div>
+    <div id="notif-page-loading">Loading notifications...</div>
     <div id="notif-page-content" style="display:none;"></div>
 </div>
 
@@ -231,8 +231,8 @@
             if (type === 'ORDER_CONFIRMED' || type === 'ORDER_READY' ||
                 type === 'ORDER_DELIVERED' || type === 'ORDER_CANCELLED')   return '/orders/';
             if (type === 'PAYMENT_RECEIVED' || type === 'ORDER_SUMMARY' ||
-                type === 'PAYMENT_FAILED')                                  return id ? '/orders/customer/' + id + '/' : '/orders/';
-            if (type === 'RECURRING_ORDER_PLACED' || type === 'RECURRING_ORDER_PAUSED' ||
+                type === 'PAYMENT_FAILED' || type === 'RECURRING_ORDER_PLACED') return id ? '/orders/customer/' + id + '/' : '/orders/';
+            if (type === 'RECURRING_ORDER_PAUSED' ||
                 type === 'RECURRING_ORDER_REMINDER')                        return id ? '/orders/recurring/' + id + '/' : '/orders/';
             if (type === 'SURPLUS_DEAL')                                    return '/browse/';
         }
