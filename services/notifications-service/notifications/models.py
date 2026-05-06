@@ -20,6 +20,7 @@ class Notification(models.Model):
         RECURRING_ORDER_REMINDER  = 'RECURRING_ORDER_REMINDER',  'Recurring Order Reminder'
         RECURRING_ORDER_PLACED    = 'RECURRING_ORDER_PLACED',    'Recurring Order Placed'
         RECURRING_ORDER_PAUSED    = 'RECURRING_ORDER_PAUSED',    'Recurring Order Paused'
+        BULK_ORDER_PLACED         = 'BULK_ORDER_PLACED',         'Bulk Order Placed'
         GENERAL                   = 'GENERAL',                   'General'
 
     recipient_id      = models.IntegerField(db_index=True)

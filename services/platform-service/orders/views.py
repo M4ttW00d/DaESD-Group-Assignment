@@ -215,7 +215,16 @@ class OrderCreateView(APIView):
 
                 total_amount += order_subtotal
 
+                is_bulk = getattr(request.user, 'role', '') == 'COMMUNITY-GROUP-REPRESENTATIVE'
+                notif_type = 'BULK_ORDER_PLACED' if is_bulk else 'ORDER_PLACED'
+
                 order_lines = [f"Order #{order.id} from {request.user.username}\n"]
+                if is_bulk:
+                    try:
+                        org_name = request.user.community_profile.organisation_name
+                        order_lines[0] = f"Bulk Order #{order.id} from {request.user.username} ({org_name})\n"
+                    except Exception:
+                        order_lines[0] = f"Bulk Order #{order.id} from {request.user.username} (Community Group)\n"
                 for basket_item in producer_basket_items:
                     product = basket_item.product
                     order_lines.append(f"  • {product.name} x{basket_item.quantity} — £{product.price}")
@@ -225,6 +234,24 @@ class OrderCreateView(APIView):
                     order_lines.append(f"Collection type: {collection}")
                 if delivery_date:
                     order_lines.append(f"Delivery date: {delivery_date}")
+                if is_bulk and delivery_instruction:
+                    order_lines.append(f"\nSpecial Instructions: {delivery_instruction}")
+                if is_bulk:
+                    order_lines.append(f"\nCustomer Contact Details:")
+                    order_lines.append(f"  Email: {request.user.email}")
+                    if request.user.phone_number:
+                        order_lines.append(f"  Phone: {request.user.phone_number}")
+                    try:
+                        delivery_addr = request.user.community_profile.delivery_address
+                        if delivery_addr:
+                            order_lines.append(f"  Delivery Address: {delivery_addr}")
+                    except Exception:
+                        pass
+
+                notif_title = (
+                    f'Bulk Order Received — #{order.id}' if is_bulk
+                    else f'New Order Received — #{order.id}'
+                )
 
                 try:
                     requests.post(
@@ -233,8 +260,8 @@ class OrderCreateView(APIView):
                             'user':    producer.id,
                             'email':   producer.email,
                             'message': "\n".join(order_lines),
-                            'type':    'ORDER_PLACED',
-                            'title':   f'New Order Received — #{order.id}',
+                            'type':    notif_type,
+                            'title':   notif_title,
                         },
                         headers={'X-Service-Secret': SERVICE_SECRET_KEY},
                         timeout=5
@@ -581,4 +608,3 @@ class TriggerRecurringOrdersView(APIView):
         output = out.getvalue()
 
         return Response({'success': True, 'output': output})
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    

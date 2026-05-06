@@ -21,6 +21,7 @@ _ACCENT_MAP = {
     'RECURRING_ORDER_REMINDER': '#7d3c98',
     'RECURRING_ORDER_PLACED':   '#1a7a42',
     'RECURRING_ORDER_PAUSED':   '#c0392b',
+    'BULK_ORDER_PLACED':        '#1a7a42',
 }
 
 

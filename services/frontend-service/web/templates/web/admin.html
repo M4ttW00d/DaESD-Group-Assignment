@@ -1179,6 +1179,7 @@
                     <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
                     <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
                     <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                    <option value="BULK_ORDER_PLACED">Bulk Order Placed</option>
                 </select>
             </div>
             <div style="display:flex;flex-direction:column;gap:0.3rem;">
@@ -1257,6 +1258,7 @@
                     <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
                     <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
                     <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                    <option value="BULK_ORDER_PLACED">Bulk Order Placed</option>
                 </select>
             </div>
             <div style="display:flex;flex-direction:column;gap:0.3rem;">
@@ -1402,7 +1404,7 @@
             </div>
 
             <!-- Community Group Representative profile fields -->
-            <div id="modal-community-fields">
+            <div id="modal-community-fields" style="display:none;">
                 <p class="modal-section-title">Community Group Representative Profile</p>
                 <div class="form-row">
                     <div class="form-group">
@@ -1451,4 +1453,432 @@ function filterTable(tableId, query) {
 
 // ── ORDERS FILTERING ──
 function filterOrders() {
-    const query = (document.getElementById('orders-search').value || '').toLowerCa
+    const query = (document.getElementById('orders-search').value || '').toLowerCase();
+    const dateFrom = document.getElementById('orders-date-from').value;
+    const dateTo = document.getElementById('orders-date-to').value;
+    const rows = document.querySelectorAll('#orders-table tbody tr:not(.empty-row)');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const rowDate = row.getAttribute('data-date') || '';
+        const textMatch = !query || text.includes(query);
+        const fromMatch = !dateFrom || rowDate >= dateFrom;
+        const toMatch = !dateTo || rowDate <= dateTo;
+        row.style.display = (textMatch && fromMatch && toMatch) ? '' : 'none';
+    });
+}
+
+function setOrdersPreset(preset) {
+    const today = new Date().toISOString().slice(0, 10);
+    const fromInput = document.getElementById('orders-date-from');
+    const toInput = document.getElementById('orders-date-to');
+    document.querySelectorAll('#tab-orders .date-preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+    } else if (preset === 'today') {
+        fromInput.value = today;
+        toInput.value = today;
+    } else if (preset === 'week') {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        fromInput.value = d.toISOString().slice(0, 10);
+        toInput.value = today;
+    } else if (preset === 'month') {
+        const d = new Date(); d.setDate(d.getDate() - 30);
+        fromInput.value = d.toISOString().slice(0, 10);
+        toInput.value = today;
+    }
+    filterOrders();
+}
+
+// ── COMMISSION FILTERING ──
+function filterCommissionTable() {
+    const q = (document.getElementById('commission-search').value || '').toLowerCase();
+    const rows = document.querySelectorAll('#commission-table tbody tr:not(.empty-row)');
+    rows.forEach(row => {
+        row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function filterCommission() {
+    const dateFrom = document.getElementById('commission-date-from').value;
+    const dateTo = document.getElementById('commission-date-to').value;
+    const statusFilter = (document.getElementById('commission-status').value || '').toUpperCase();
+
+    const allRows = document.querySelectorAll('#orders-table tbody tr:not(.empty-row)');
+    let revenue = 0, commission = 0, orderCount = 0;
+    const producerTotals = {};
+    const monthlyTotals = {};
+
+    allRows.forEach(row => {
+        const rowDate = row.getAttribute('data-date') || '';
+        const cells = row.querySelectorAll('td');
+        const rowStatus = cells[6].textContent.trim().toUpperCase();
+        const fromMatch = !dateFrom || rowDate >= dateFrom;
+        const toMatch = !dateTo || rowDate <= dateTo;
+        const statusMatch = !statusFilter || rowStatus.includes(statusFilter);
+
+        if (fromMatch && toMatch && statusMatch) {
+            const r = parseFloat((cells[3].textContent || '0').replace('£', '')) || 0;
+            const c = parseFloat((cells[4].textContent || '0').replace('£', '')) || 0;
+            const producer = cells[2].textContent.trim();
+            const month = rowDate.slice(0, 7); // YYYY-MM
+            revenue += r;
+            commission += c;
+            orderCount++;
+
+            // Producer totals
+            if (!producerTotals[producer]) producerTotals[producer] = { orders: 0, revenue: 0, commission: 0 };
+            producerTotals[producer].orders++;
+            producerTotals[producer].revenue += r;
+            producerTotals[producer].commission += c;
+
+            // Monthly totals
+            if (!monthlyTotals[month]) monthlyTotals[month] = { orders: 0, revenue: 0, commission: 0 };
+            monthlyTotals[month].orders++;
+            monthlyTotals[month].revenue += r;
+            monthlyTotals[month].commission += c;
+        }
+    });
+
+    // Update period summary cards
+    document.getElementById('period-orders').textContent = orderCount;
+    document.getElementById('period-revenue').textContent = '£' + revenue.toFixed(2);
+    document.getElementById('period-commission').textContent = '£' + commission.toFixed(2);
+    document.getElementById('period-payout').textContent = '£' + (revenue - commission).toFixed(2);
+
+    // Rebuild monthly summary table
+    const monthlyTbody = document.getElementById('monthly-tbody');
+    monthlyTbody.innerHTML = '';
+    const months = Object.keys(monthlyTotals).sort().reverse();
+    if (months.length === 0) {
+        monthlyTbody.innerHTML = '<tr class="empty-row"><td colspan="5">No data for this period.</td></tr>';
+    } else {
+        months.forEach(month => {
+            const d = monthlyTotals[month];
+            const label = new Date(month + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+            monthlyTbody.innerHTML += `<tr>
+                <td><strong>${label}</strong></td>
+                <td>${d.orders}</td>
+                <td>£${d.revenue.toFixed(2)}</td>
+                <td>£${d.commission.toFixed(2)}</td>
+                <td>£${(d.revenue - d.commission).toFixed(2)}</td>
+            </tr>`;
+        });
+    }
+
+    // Rebuild producer breakdown table
+    const tbody = document.getElementById('commission-tbody');
+    tbody.innerHTML = '';
+    const sorted = Object.entries(producerTotals).sort((a, b) => b[1].commission - a[1].commission);
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No commission data for this period.</td></tr>';
+    } else {
+        sorted.forEach(([producer, data]) => {
+            const payout = data.revenue - data.commission;
+            tbody.innerHTML += `<tr>
+                <td><strong>${producer}</strong></td>
+                <td>${data.orders}</td>
+                <td>£${data.revenue.toFixed(2)}</td>
+                <td>£${data.commission.toFixed(2)}</td>
+                <td>£${payout.toFixed(2)}</td>
+            </tr>`;
+        });
+    }
+}
+
+function setCommissionPreset(preset) {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const fromInput = document.getElementById('commission-date-from');
+    const toInput = document.getElementById('commission-date-to');
+    document.querySelectorAll('#tab-commission .date-preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+    } else if (preset === 'today') {
+        fromInput.value = todayStr;
+        toInput.value = todayStr;
+    } else if (preset === 'week') {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        fromInput.value = d.toISOString().slice(0, 10);
+        toInput.value = todayStr;
+    } else if (preset === 'month') {
+        fromInput.value = todayStr.slice(0, 7) + '-01';
+        toInput.value = todayStr;
+    } else if (preset === 'ytd') {
+        fromInput.value = todayStr.slice(0, 4) + '-01-01';
+        toInput.value = todayStr;
+    }
+    filterCommission();
+}
+
+function exportCommissionCSV() {
+    const dateFrom = document.getElementById('commission-date-from').value;
+    const dateTo = document.getElementById('commission-date-to').value;
+    let url = '/admin-dashboard/commission/export/';
+    const params = [];
+    if (dateFrom) params.push('date_from=' + dateFrom);
+    if (dateTo) params.push('date_to=' + dateTo);
+    if (params.length) url += '?' + params.join('&');
+    window.location.href = url;
+}
+
+// ── SORTING ──
+const sortState = {};
+function sortTable(tableId, colIndex) {
+    const key = tableId + '_' + colIndex;
+    sortState[key] = !sortState[key];
+    const asc = sortState[key];
+    const tbody = document.querySelector('#' + tableId + ' tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+    rows.sort((a, b) => {
+        const aText = a.querySelectorAll('td')[colIndex]?.textContent.trim() || '';
+        const bText = b.querySelectorAll('td')[colIndex]?.textContent.trim() || '';
+        const aNum = parseFloat(aText.replace(/[£,]/g, ''));
+        const bNum = parseFloat(bText.replace(/[£,]/g, ''));
+        if (!isNaN(aNum) && !isNaN(bNum)) return asc ? aNum - bNum : bNum - aNum;
+        return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    // Update sort icons
+    document.querySelectorAll('#' + tableId + ' .sort-icon').forEach((icon, i) => {
+        icon.textContent = i === colIndex ? (asc ? '↑' : '↓') : '↕';
+    });
+}
+
+function toggleModalProfileFields(role) {
+    document.getElementById('modal-customer-fields').style.display = role === 'CUSTOMER' ? '' : 'none';
+    document.getElementById('modal-producer-fields').style.display = role === 'PRODUCER' ? '' : 'none';
+    document.getElementById('modal-community-fields').style.display = role === 'COMMUNITY-GROUP-REPRESENTATIVE' ? '' : 'none';
+}
+
+function openEditModalFromBtn(userId) {
+    const data = JSON.parse(document.getElementById('user-data-' + userId).textContent);
+    openEditModal(data.id, data.username, data.email, data.phone, data.role,
+        data.firstName, data.lastName, data.customerDeliveryAddress, data.customerPostcode,
+        data.businessName, data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId,
+        data.organizationName, data.organizationType, data.communityDeliveryAddress, data.communityPostcode);
+}
+
+function openEditModal(id, username, email, phone, role, firstName, lastName, customerDeliveryAddress, customerPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId, organizationName, organizationType, communityDeliveryAddress, communityPostcode) {
+    document.getElementById('edit-username').value = username || '';
+    document.getElementById('edit-email').value = email || '';
+    document.getElementById('edit-phone').value = phone || '';
+    document.getElementById('edit-role').value = role || '';
+    document.getElementById('edit-first-name').value = firstName || '';
+    document.getElementById('edit-last-name').value = lastName || '';
+    document.getElementById('edit-customer-delivery-address').value = customerDeliveryAddress || '';
+    document.getElementById('edit-customer-postcode').value = customerPostcode || '';
+    document.getElementById('edit-business-name').value = businessName || '';
+    document.getElementById('edit-business-address').value = businessAddress || '';
+    document.getElementById('edit-producer-postcode').value = producerPostcode || '';
+    document.getElementById('edit-bio').value = bio || '';
+    document.getElementById('edit-stripe-account-id').value = stripeAccountId || '';
+    document.getElementById('edit-organization-name').value = organizationName || '';
+    document.getElementById('edit-organization-type').value = organizationType || '';
+    document.getElementById('edit-community-delivery-address').value = communityDeliveryAddress || '';
+    document.getElementById('edit-community-postcode').value = communityPostcode || '';
+    document.getElementById('edit-user-form').action = '/admin-dashboard/users/' + id + '/edit/';
+    toggleModalProfileFields(role);
+    document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.remove('open');
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
+
+var userMap = {};
+{% for u in users %}userMap[{{ u.id }}] = '{{ u.username|escapejs }}';{% endfor %}
+
+var emailPreviewCache = {};
+
+function relativeTime(iso) {
+    var diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)    return 'just now';
+    if (diff < 3600)  return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+}
+
+var PRODUCER_TYPES = new Set([
+    'ORDER_PLACED', 'LOW_STOCK', 'OUT_OF_STOCK', 'SURPLUS_DEAL',
+    'SEASONAL_REMINDER', 'SETTLEMENT_READY', 'RECURRING_ORDER_PLACED'
+]);
+var CUSTOMER_TYPES = new Set([
+    'ORDER_CONFIRMED', 'ORDER_READY', 'ORDER_DELIVERED', 'ORDER_CANCELLED',
+    'ORDER_UPDATE', 'PAYMENT_RECEIVED', 'PAYMENT_FAILED', 'ORDER_SUMMARY',
+    'RECURRING_ORDER_REMINDER', 'RECURRING_ORDER_PAUSED'
+]);
+
+function loadNotifications() {
+    var params = new URLSearchParams();
+    var type  = document.getElementById('notif-filter-type').value;
+    var role  = document.getElementById('notif-filter-role').value;
+    var email = document.getElementById('notif-filter-email').value;
+    var user  = document.getElementById('notif-filter-user').value;
+    var from  = document.getElementById('notif-filter-from').value;
+    var to    = document.getElementById('notif-filter-to').value;
+    if (type)  params.set('type', type);
+    if (email) params.set('email_sent', email);
+    if (user)  params.set('recipient_id', user);
+    if (from)  params.set('date_from', from);
+    if (to)    params.set('date_to', to);
+
+    document.getElementById('notif-admin-loading').textContent = 'Loading…';
+    document.getElementById('notif-admin-loading').style.display = 'block';
+    document.getElementById('notif-admin-table-wrap').style.display = 'none';
+
+    fetch('/admin-dashboard/notifications/?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(items) {
+            if (role === 'producer') items = items.filter(function(n) { return PRODUCER_TYPES.has(n.notification_type); });
+            else if (role === 'customer') items = items.filter(function(n) { return CUSTOMER_TYPES.has(n.notification_type); });
+            var tbody = document.getElementById('notif-admin-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('notif-count-label').textContent = items.length + ' result' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No notifications found.</td></tr>';
+            } else {
+                items.forEach(function(n) {
+                    var recipient = userMap[n.recipient_id] ? userMap[n.recipient_id] + ' (' + n.recipient_id + ')' : 'User ' + n.recipient_id;
+                    var typeBadge = '<span style="font-size:0.75rem;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--green-light);color:var(--green);">' + n.notification_type.replace(/_/g, ' ') + '</span>';
+                    var emailBadge = n.email_sent
+                        ? '<span style="color:#1a7a42;font-weight:700;">✓ Sent</span>'
+                        : '<span style="color:var(--text-muted);">—</span>';
+                    var inAppBadge = n.show_in_app
+                        ? '<span style="color:#1a7a42;">✓</span>'
+                        : '<span style="color:var(--text-muted);">—</span>';
+                    var readBadge = n.is_read
+                        ? '<span style="color:var(--text-muted);">Read</span>'
+                        : '<span style="color:#00622e;font-weight:700;">Unread</span>';
+                    var emailViewBtn = '';
+                    if (n.email_log) {
+                        var cacheKey = 'notif-' + n.id;
+                        emailPreviewCache[cacheKey] = n.email_log;
+                        emailViewBtn = '<button onclick="openEmailPreviewByKey(\'' + cacheKey + '\')" style="padding:3px 10px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;font-size:0.78rem;">View Email</button>';
+                    }
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + n.id + '</td>' +
+                        '<td>' + recipient + '</td>' +
+                        '<td>' + typeBadge + '</td>' +
+                        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (n.title || '') + '">' + (n.title || '—') + '</td>' +
+                        '<td style="text-align:center;">' + inAppBadge + '</td>' +
+                        '<td style="text-align:center;">' + emailBadge + '</td>' +
+                        '<td style="text-align:center;">' + readBadge + '</td>' +
+                        '<td style="white-space:nowrap;">' + relativeTime(n.created_at) + '</td>' +
+                        '<td>' + emailViewBtn + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+            document.getElementById('notif-admin-loading').style.display = 'none';
+            document.getElementById('notif-admin-table-wrap').style.display = 'block';
+        })
+        .catch(function() {
+            document.getElementById('notif-admin-loading').textContent = 'Could not load notifications.';
+        });
+}
+
+function clearNotifFilters() {
+    document.getElementById('notif-filter-type').value = '';
+    document.getElementById('notif-filter-role').value = '';
+    document.getElementById('notif-filter-email').value = '';
+    document.getElementById('notif-filter-user').value = '';
+    document.getElementById('notif-filter-from').value = '';
+    document.getElementById('notif-filter-to').value = '';
+    document.getElementById('notif-count-label').textContent = '';
+    document.getElementById('notif-admin-loading').textContent = 'Select filters and click Apply, or load all.';
+    document.getElementById('notif-admin-loading').style.display = 'block';
+    document.getElementById('notif-admin-table-wrap').style.display = 'none';
+}
+
+function switchNotifSubtab(name) {
+    document.getElementById('notif-subpanel-notifs').style.display = name === 'notifs' ? 'block' : 'none';
+    document.getElementById('notif-subpanel-emails').style.display = name === 'emails' ? 'block' : 'none';
+    document.getElementById('notif-subtab-notifs').style.borderBottomColor = name === 'notifs' ? 'var(--green)' : 'transparent';
+    document.getElementById('notif-subtab-notifs').style.color = name === 'notifs' ? 'var(--green)' : 'var(--text-muted)';
+    document.getElementById('notif-subtab-emails').style.borderBottomColor = name === 'emails' ? 'var(--green)' : 'transparent';
+    document.getElementById('notif-subtab-emails').style.color = name === 'emails' ? 'var(--green)' : 'var(--text-muted)';
+    if (name === 'emails' && !document.getElementById('email-log-table-wrap').style.display.includes('block')) {
+        loadEmailLogs();
+    }
+}
+
+function loadEmailLogs() {
+    var params = new URLSearchParams();
+    var type      = document.getElementById('email-filter-type').value;
+    var status    = document.getElementById('email-filter-status').value;
+    var recipient = document.getElementById('email-filter-recipient').value;
+    var from      = document.getElementById('email-filter-from').value;
+    var to        = document.getElementById('email-filter-to').value;
+    if (type)      params.set('type', type);
+    if (status)    params.set('status', status);
+    if (recipient) params.set('recipient_email', recipient);
+    if (from)      params.set('date_from', from);
+    if (to)        params.set('date_to', to);
+
+    document.getElementById('email-log-loading').textContent = 'Loading…';
+    document.getElementById('email-log-loading').style.display = 'block';
+    document.getElementById('email-log-table-wrap').style.display = 'none';
+
+    fetch('/admin-dashboard/email-logs/?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(items) {
+            var tbody = document.getElementById('email-log-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('email-count-label').textContent = items.length + ' result' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No email logs found.</td></tr>';
+            } else {
+                items.forEach(function(log) {
+                    var statusBadge = log.status === 'SENT'
+                        ? '<span style="color:#1a7a42;font-weight:700;">✓ Sent</span>'
+                        : '<span style="color:#c0392b;font-weight:700;">✗ Failed</span>';
+                    var typeParts = (log.subject || '').replace('BRFN: ', '');
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = [
+                        '<td>' + new Date(log.sent_at).toLocaleString() + '</td>',
+                        '<td>' + statusBadge + '</td>',
+                        '<td>' + (log.notification_id || '—') + '</td>',
+                        '<td>' + (log.recipient_email || '—') + '</td>',
+                        '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (log.subject || '') + '</td>',
+                        '<td><button class="btn-sm-edit" onclick="openEmailPreviewByKey(\'log-' + log.id + '\')">View</button></td>',
+                    ].join('');
+                    emailPreviewCache['log-' + log.id] = log.html_body || '<em>No body stored.</em>';
+                    tbody.appendChild(tr);
+                });
+            }
+            document.getElementById('email-log-loading').style.display = 'none';
+            document.getElementById('email-log-table-wrap').style.display = 'block';
+        })
+        .catch(function() {
+            document.getElementById('email-log-loading').textContent = 'Failed to load email logs.';
+        });
+}
+
+function openEmailPreviewByKey(key) {
+    var html = emailPreviewCache[key];
+    if (!html) { return; }
+    var modal = document.getElementById('email-preview-modal');
+    var frame = document.getElementById('email-preview-frame');
+    frame.srcdoc = html;
+    modal.style.display = 'flex';
+}
+
+function closeEmailPreview() {
+    document.getElementById('email-preview-modal').style.display = 'none';
+    document.getElementById('email-preview-frame').srcdoc = '';
+}
+
+document.getElementById('email-preview-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEmailPreview();
+});
+
+</script>
+{% endblock %}

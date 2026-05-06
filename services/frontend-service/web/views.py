@@ -151,6 +151,7 @@ def _send_payment_notifications(request, order):
     if not customer_id:
         return
 
+    is_bulk = request.session.get('role') == 'COMMUNITY-GROUP-REPRESENTATIVE'
     summary_lines = []
     for sub in sub_orders:
         producer_name = sub.get('producer_name') or 'Producer'
@@ -166,6 +167,16 @@ def _send_payment_notifications(request, order):
             summary_lines.append(f"\n  Collection: {collection}")
         if delivery:
             summary_lines.append(f"\n  Delivery date: {delivery}")
+        delivery_instruction = sub.get('delivery_instruction', '')
+        if is_bulk and delivery_instruction:
+            summary_lines.append(f"\n  Instructions: {delivery_instruction}")
+        if is_bulk:
+            producer_email = sub.get('producer_email', '')
+            producer_phone = sub.get('producer_phone', '')
+            if producer_email:
+                summary_lines.append(f"\n  Contact: {producer_email}")
+            if producer_phone:
+                summary_lines.append(f"\n  Phone: {producer_phone}")
 
     order_summary_message = (
         f"Order #{customer_order_id} — Total: £{total_amount}"
@@ -1187,6 +1198,7 @@ def admin_commission_export(request):
     if not request.session.get('token') or request.session.get('role') != 'ADMIN':
         return redirect('/login/')
     orders = []
+    headers = get_auth_headers(request)
 
     try:
         resp_orders = requests.get(f"{PLATFORM_API_URL}/api/orders/", headers=headers, timeout=5)
@@ -2451,4 +2463,369 @@ def producer_orders_view(request):
                         if customer_postcode and producer_postcode:
                             miles = _calculate_food_miles(customer_postcode, producer_postcode)
                             if miles:
-                            
+                                order['food_miles'] = miles
+                                total_food_miles += miles
+            except Exception:
+                pass
+        elif resp.status_code == 401:
+            request.session.flush()
+            return redirect('/login/')
+        else:
+            error = f"Could not load your orders (status {resp.status_code})."
+    except Exception as e:
+        error = f"Unexpected error: {str(e)}"
+    return render(request, 'web/producer_orders.html', {
+        'orders': orders,
+        'error': error,
+        'total_food_miles': round(total_food_miles, 1),
+    })
+
+
+def producer_order_detail_view(request, order_id):
+    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
+        return redirect('/login/')
+    order = None
+    error = request.GET.get('error')
+    try:
+        resp = requests.get(f"{PLATFORM_API_URL}/api/orders/{order_id}/", headers=get_auth_headers(request), timeout=5)
+        if resp.status_code == 200:
+            order = resp.json()
+        elif resp.status_code == 404:
+            return redirect('/dashboard/orders/')
+        elif resp.status_code == 401:
+            request.session.flush()
+            return redirect('/login/')
+        else:
+            error = f"Failed to load order details (status {resp.status_code})."
+    except Exception as e:
+        error = f"Error communicating with API: {str(e)}"
+    return render(request, 'web/producer_order_detail.html', {'order': order, 'error': error})
+
+
+def producer_update_order_status_view(request, order_id):
+    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
+        return redirect('/login/')
+    if request.method == 'POST':
+        status_val = request.POST.get('status')
+        note = request.POST.get('note', '')
+        try:
+            resp = requests.patch(
+                f"{PLATFORM_API_URL}/api/orders/{order_id}/status/",
+                headers=get_auth_headers(request),
+                json={'status': status_val, 'note': note},
+                timeout=5
+            )
+            if resp.status_code == 401:
+                request.session.flush()
+                return redirect('/login/')
+            elif resp.status_code != 200:
+                try:
+                    error_msg = resp.json().get('error', 'Update failed.')
+                except:
+                    error_msg = "Unknown error occurred."
+                from urllib.parse import quote_plus
+                return redirect(f'/dashboard/orders/{order_id}/?error={quote_plus(error_msg)}')
+        except Exception as e:
+            from urllib.parse import quote_plus
+            return redirect(f'/dashboard/orders/{order_id}/?error={quote_plus(str(e))}')
+    return redirect(f'/dashboard/orders/{order_id}/')
+
+
+def producer_content_dashboard(request):
+    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
+        return redirect('/login/')
+    recipes, stories = [], []
+    error = None
+    username = request.session.get('username')
+    try:
+        resp_r = requests.get(f"{PLATFORM_API_URL}/api/products/recipes/", params={'producer__username': username}, timeout=5)
+        if resp_r.status_code == 200:
+            recipes = resp_r.json()
+        resp_s = requests.get(f"{PLATFORM_API_URL}/api/products/farm-stories/", params={'producer__username': username}, timeout=5)
+        if resp_s.status_code == 200:
+            stories = resp_s.json()
+    except Exception as e:
+        error = f"Could not load content: {str(e)}"
+    return render(request, 'web/content_dashboard.html', {
+        'recipes': recipes, 'stories': stories, 'error': error, 'media_base_url': MEDIA_BASE_URL
+    })
+
+
+def add_recipe_view(request):
+    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
+        return redirect('/login/')
+    error = None
+    products = []
+    try:
+        resp_p = requests.get(f"{PLATFORM_API_URL}/api/products/", params={'producer__username': request.session.get('username')}, timeout=5)
+        if resp_p.status_code == 200:
+            products = resp_p.json()
+    except:
+        pass
+    if request.method == 'POST':
+        form_data = request.POST.dict()
+        form_data.pop('csrfmiddlewaretoken', None)
+        files = {}
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            files['image'] = (image_file.name, image_file.read(), image_file.content_type)
+        selected_products = request.POST.getlist('products')
+        data_tuples = [(k, v) for k, v in form_data.items() if k != 'products']
+        for pid in selected_products:
+            data_tuples.append(('products', pid))
+        try:
+            resp = requests.post(
+                f"{PLATFORM_API_URL}/api/products/recipes/",
+                headers={'Authorization': f"Bearer {request.session.get('token')}"},
+                data=data_tuples,
+                files=files if files else None,
+                timeout=10
+            )
+            if resp.status_code == 201:
+                return redirect('/dashboard/content/')
+            else:
+                error = f"Failed to create recipe: {resp.text}"
+        except Exception as e:
+            error = f"Error: {str(e)}"
+    return render(request, 'web/add_recipe.html', {'products': products, 'error': error})
+
+
+def add_farm_story_view(request):
+    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
+        return redirect('/login/')
+    error = None
+    if request.method == 'POST':
+        form_data = request.POST.dict()
+        form_data.pop('csrfmiddlewaretoken', None)
+        files = {}
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            files['image'] = (image_file.name, image_file.read(), image_file.content_type)
+        try:
+            resp = requests.post(
+                f"{PLATFORM_API_URL}/api/products/farm-stories/",
+                headers={'Authorization': f"Bearer {request.session.get('token')}"},
+                data=form_data,
+                files=files if files else None,
+                timeout=10
+            )
+            if resp.status_code == 201:
+                return redirect('/dashboard/content/')
+            else:
+                error = f"Failed to create story: {resp.text}"
+        except Exception as e:
+            error = f"Error: {str(e)}"
+    return render(request, 'web/add_farm_story.html', {'error': error})
+
+
+def producer_public_profile(request, producer_id):
+    profile_data = {}
+    error = None
+    try:
+        resp = requests.get(f"{PLATFORM_API_URL}/api/auth/public-producers/{producer_id}/profile/", timeout=5)
+        if resp.status_code == 200:
+            profile_data = resp.json()
+        elif resp.status_code == 404:
+            error = "Producer not found."
+        else:
+            error = f"Error fetching producer profile (Status {resp.status_code})."
+    except Exception as e:
+        error = f"Error communicating with API: {str(e)}"
+    return render(request, 'web/producer_public_profile.html', {
+        'producer': profile_data,
+        'products': profile_data.get('products', []),
+        'recipes': profile_data.get('recipes', []),
+        'stories': profile_data.get('farm_stories', []),
+        'error': error,
+        'media_base_url': MEDIA_BASE_URL
+    })
+
+
+def delete_recipe_view(request, recipe_id):
+    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
+        return redirect('/login/')
+    try:
+        requests.delete(
+            f"{PLATFORM_API_URL}/api/products/recipes/{recipe_id}/",
+            headers={'Authorization': f"Bearer {request.session.get('token')}"},
+            timeout=5
+        )
+    except:
+        pass
+    return redirect('/dashboard/content/')
+
+
+def delete_farm_story_view(request, story_id):
+    if not request.session.get('token') or request.session.get('role') != 'PRODUCER':
+        return redirect('/login/')
+    try:
+        requests.delete(
+            f"{PLATFORM_API_URL}/api/products/farm-stories/{story_id}/",
+            headers={'Authorization': f"Bearer {request.session.get('token')}"},
+            timeout=5
+        )
+    except:
+        pass
+    return redirect('/dashboard/content/')
+
+
+def notifications_page_view(request):
+    if not request.session.get('user_id'):
+        return redirect('/login/')
+    return render(request, 'web/notifications.html')
+
+
+def notifications_count_view(request):
+    from django.http import JsonResponse
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'unread_count': 0})
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/unread-count/",
+            params={'recipient_id': user_id},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json())
+    except Exception:
+        pass
+    return JsonResponse({'unread_count': 0})
+
+
+def notifications_list_view(request):
+    from django.http import JsonResponse
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse([], safe=False)
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/list/",
+            params={'recipient_id': user_id},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json(), safe=False)
+    except Exception:
+        pass
+    return JsonResponse([], safe=False)
+
+
+def notifications_mark_read_view(request, pk):
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    try:
+        resp = requests.patch(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/{pk}/",
+            json={'recipient_id': user_id},
+            timeout=5
+        )
+        return JsonResponse({'ok': resp.status_code == 200})
+    except Exception:
+        return JsonResponse({'ok': False})
+
+
+def notifications_mark_all_read_view(request):
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    try:
+        resp = requests.patch(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/read-all/",
+            json={'recipient_id': user_id},
+            timeout=5
+        )
+        return JsonResponse({'ok': resp.status_code == 200})
+    except Exception:
+        return JsonResponse({'ok': False})
+
+
+def admin_notifications_view(request):
+    from django.http import JsonResponse
+    import os
+    if request.session.get('role') != 'ADMIN':
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+    secret = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')
+    params = {k: v for k, v in request.GET.items() if k in ('recipient_id', 'type', 'email_sent', 'date_from', 'date_to')}
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/admin/list/",
+            params=params,
+            headers={'X-Service-Secret': secret},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json(), safe=False)
+    except Exception:
+        pass
+    return JsonResponse([], safe=False)
+
+
+def admin_email_logs_view(request):
+    from django.http import JsonResponse
+    import os
+    if request.session.get('role') != 'ADMIN':
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+    secret = os.environ.get('NOTIFICATIONS_API_SECRET_KEY', '')
+    params = {k: v for k, v in request.GET.items() if k in ('recipient_email', 'type', 'status', 'date_from', 'date_to')}
+    try:
+        resp = requests.get(
+            f"{NOTIFICATIONS_API_URL}/api/notifications/admin/email-logs/",
+            params=params,
+            headers={'X-Service-Secret': secret},
+            timeout=10
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json(), safe=False)
+    except Exception:
+        pass
+    return JsonResponse([], safe=False)
+
+
+def favourite_toggle_view(request, producer_id):
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    token = request.session.get('token')
+    if not token:
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
+    try:
+        resp = requests.post(
+            f"{PLATFORM_API_URL}/api/auth/favourites/{producer_id}/",
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=5
+        )
+        if resp.status_code in (200, 201):
+            return JsonResponse(resp.json())
+        return JsonResponse({'error': 'Failed'}, status=resp.status_code)
+    except Exception:
+        return JsonResponse({'error': 'Service unavailable'}, status=503)
+
+
+def favourite_list_view(request):
+    from django.http import JsonResponse
+    token = request.session.get('token')
+    if not token:
+        return JsonResponse({'favourited_producer_ids': []})
+    try:
+        resp = requests.get(
+            f"{PLATFORM_API_URL}/api/auth/favourites/",
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            return JsonResponse(resp.json())
+    except Exception:
+        pass
+    return JsonResponse({'favourited_producer_ids': []})
+
+
+def custom_404(request, exception=None):
+    return render(request, 'web/404.html', status=404)
