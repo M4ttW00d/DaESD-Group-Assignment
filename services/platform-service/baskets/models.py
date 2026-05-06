@@ -31,6 +31,7 @@ class BasketItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='basket_items')
     quantity = models.PositiveIntegerField(default=1)
     added_at = models.DateTimeField(auto_now_add=True)
+    reserved_at = models.DateTimeField(auto_now=True)  # refreshes on every save
 
     class Meta:
         db_table = 'basket_items'
