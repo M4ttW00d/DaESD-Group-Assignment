@@ -738,7 +738,7 @@
 
     <ul class="nav-links">
         <li><a href="/" style="{% if request.path == '/' %}font-weight: bold; color: #fff;{% endif %}">Browse</a></li>
-        {% if request.session.role == 'CUSTOMER' %}
+        {% if request.session.role == 'CUSTOMER' or request.session.role == 'COMMUNITY-GROUP-REPRESENTATIVE' %}
         <li><a href="/basket/" style="{% if request.path == '/basket/' %}font-weight: bold; color: #fff;{% endif %}">Basket</a></li>
         <li><a href="/orders/">Order History</a></li>
         <li><a href="/profile/" class="nav-username" style="{% if request.path == '/profile/' %}font-weight: bold;{% endif %}">{{ request.session.username }}</a></li>
@@ -913,7 +913,7 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
 })();
 </script>
 
-{% if request.session.role == 'CUSTOMER' or request.session.role == 'PRODUCER' %}
+{% if request.session.role == 'CUSTOMER' or request.session.role == 'PRODUCER' or request.session.role == 'COMMUNITY-GROUP-REPRESENTATIVE' %}
 <script>
 (function () {
     var bell       = document.getElementById('notif-bell');

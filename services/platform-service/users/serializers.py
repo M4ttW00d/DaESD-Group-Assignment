@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import ProducerProfile, CustomerProfile
+from .models import ProducerProfile, CustomerProfile, CommunityGroupProfile
 import re
 
 User = get_user_model()
@@ -55,20 +55,37 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
         if value and value.strip():
             return validate_uk_postcode(value)
         return value
+    
+class CommunityGroupProfileSerializer(serializers.ModelSerializer):
+    organization_name = serializers.CharField(required=False, allow_blank=True, default='')
+    organization_type = serializers.CharField(required=False, allow_blank=True, default='')
+    delivery_address = serializers.CharField(required=False, allow_blank=True, default='')
+    postcode = serializers.CharField(required=False, allow_blank=True, default='')
+
+    class Meta:
+        model = CommunityGroupProfile
+        fields = ('organization_name', 'organization_type', 'delivery_address', 'postcode')
+
+    def validate_postcode(self, value):
+        if value and value.strip():
+            return validate_uk_postcode(value)
+        return value
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
     producer_profile = ProducerProfileSerializer(required=False)
     customer_profile = CustomerProfileSerializer(required=False)
+    community_profile = CommunityGroupProfileSerializer(required=False)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'password', 'email', 'role', 'phone_number', 'producer_profile', 'customer_profile')
+        fields = ('id', 'username', 'password', 'email', 'role', 'phone_number', 'producer_profile', 'customer_profile', 'community_profile')
         read_only_fields = ('id',)
 
     def create(self, validated_data):
         producer_data = validated_data.pop('producer_profile', None)
         customer_data = validated_data.pop('customer_profile', None)
+        community_group_data = validated_data.pop('community_profile', None)
 
         user = User.objects.create_user(
             username=validated_data['username'],
@@ -82,12 +99,15 @@ class UserSerializer(serializers.ModelSerializer):
             ProducerProfile.objects.create(user=user, **(producer_data or {}))
         elif user.role == 'CUSTOMER':
             CustomerProfile.objects.create(user=user, **(customer_data or {}))
+        elif user.role == 'COMMUNITY-GROUP-REPRESENTATIVE':
+            CommunityGroupProfile.objects.create(user=user, **(community_group_data or {}))
 
         return user
 
     def update(self, instance, validated_data):
         producer_data = validated_data.pop('producer_profile', None)
         customer_data = validated_data.pop('customer_profile', None)
+        community_group_data = validated_data.pop('community_profile', None)
         password = validated_data.pop('password', None)
 
         for attr, value in validated_data.items():
@@ -102,6 +122,8 @@ class UserSerializer(serializers.ModelSerializer):
             ProducerProfile.objects.update_or_create(user=instance, defaults=producer_data)
         if customer_data and instance.role == 'CUSTOMER':
             CustomerProfile.objects.update_or_create(user=instance, defaults=customer_data)
+        if community_group_data and instance.role == 'COMMUNITY-GROUP-REPRESENTATIVE':
+            CommunityGroupProfile.objects.update_or_create(user=instance, defaults=community_group_data)
 
         return instance
 

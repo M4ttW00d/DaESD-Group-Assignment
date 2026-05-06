@@ -345,6 +345,9 @@
                         <span class="producer-order-subtotal">Subtotal: £{{ producer_order.total_amount|floatformat:2 }}</span>
                         <span class="producer-order-subtotal">Delivery date: {{ producer_order.delivery_date }}</span>
                         <span class="producer-order-subtotal">Collection type: {{ producer_order.collection_type }}</span>
+                        {% if producer_order.delivery_instruction is not None %}
+                        <span class="producer-order-subtotal">Special Delivery Instructions: {{ producer_order.delivery_instruction }}</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>

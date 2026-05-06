@@ -209,6 +209,27 @@ textarea.form-input { resize: vertical; min-height: 80px; }
                     <label class="form-label">Bio</label>
                     <textarea class="form-input" name="bio">{{ user.producer_profile.bio|default:'' }}</textarea>
                 </div>
+
+                {% elif user.role == 'COMMUNITY-GROUP-REPRESENTATIVE' %}
+                <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                    <div>
+                        <label class="form-label">Organization Name</label>
+                        <input class="form-input" type="text" name="organization_name" value="{{ user.community_profile.organization_name|default:'' }}">
+                    </div>
+                    <div>
+                        <label class="form-label">Organization Type</label>
+                        <input class="form-input" type="text" name="organization_type" value="{{ user.community_profile.organization_type|default:'' }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Delivery Address</label>
+                    <textarea class="form-input" name="delivery_address">{{ user.community_profile.delivery_address|default:'' }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Postcode</label>
+                    <input class="form-input" type="text" name="postcode" value="{{ user.community_profile.postcode|default:'' }}">
+                </div>
+
                 {% endif %}
 
                 <button type="submit" class="btn-save">Save Changes</button>

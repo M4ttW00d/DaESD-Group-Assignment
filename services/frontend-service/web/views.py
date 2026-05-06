@@ -197,6 +197,7 @@ def _finalize_pending_order(request, *, payment_id, session_id, order_reference)
             json={
                 'delivery_dates': pending_checkout.get('delivery_dates', {}),
                 'collection_types': pending_checkout.get('collection_types', {}),
+                'delivery_instructions': pending_checkout.get('delivery_instructions', {}),
             },
             timeout=10
         )
@@ -492,7 +493,7 @@ def register_view(request):
         if role == 'CUSTOMER':
             form_data['first_name'] = request.POST.get('first_name', '').strip()
             form_data['last_name'] = request.POST.get('last_name', '').strip()
-            form_data['delivery_address'] = request.POST.get('delivery_address', '').strip()
+            form_data['customer_delivery_address'] = request.POST.get('customer_delivery_address', '').strip()
             form_data['customer_postcode'] = request.POST.get('customer_postcode', '').strip()
 
             payload = {
@@ -504,11 +505,11 @@ def register_view(request):
                 'customer_profile': {
                     'first_name': form_data['first_name'],
                     'last_name': form_data['last_name'],
-                    'delivery_address': form_data['delivery_address'],
+                    'delivery_address': form_data['customer_delivery_address'],
                     'postcode': form_data['customer_postcode'],
                 }
             }
-        else:
+        elif role == 'PRODUCER':
             form_data['business_name'] = request.POST.get('business_name', '').strip()
             form_data['business_address'] = request.POST.get('business_address', '').strip()
             form_data['producer_postcode'] = request.POST.get('producer_postcode', '').strip()
@@ -525,6 +526,25 @@ def register_view(request):
                     'business_address': form_data['business_address'],
                     'postcode': form_data['producer_postcode'],
                     'bio': form_data['bio'],
+                }
+            }
+        elif role == 'COMMUNITY-GROUP-REPRESENTATIVE':
+            form_data['organization_name'] = request.POST.get('organization_name', '').strip()
+            form_data['organization_type'] = request.POST.get('organization_type', '').strip()
+            form_data['community_delivery_address'] = request.POST.get('community_delivery_address', '').strip()
+            form_data['community_postcode'] = request.POST.get('community_postcode', '').strip()
+
+            payload = {
+                'username': form_data['username'],
+                'password': request.POST.get('password', ''),
+                'email': form_data['email'],
+                'phone_number': form_data['phone_number'],
+                'role': 'COMMUNITY-GROUP-REPRESENTATIVE',
+                'community_profile': {
+                    'organization_name': form_data['organization_name'],
+                    'organization_type': form_data['organization_type'],
+                    'delivery_address': form_data['community_delivery_address'],
+                    'postcode': form_data['community_postcode'],
                 }
             }
 
@@ -599,6 +619,13 @@ def profile_view(request):
                     'business_address': request.POST.get('business_address', '').strip(),
                     'postcode': request.POST.get('postcode', '').strip(),
                     'bio': request.POST.get('bio', '').strip(),
+                }
+            elif role == 'COMMUNITY-GROUP-REPRESENTATIVE':
+                payload['community_profile'] = {
+                    'organization_name': request.POST.get('organization_name', '').strip(),
+                    'organization_type': request.POST.get('organization_type', '').strip(),
+                    'delivery_address': request.POST.get('delivery_address', '').strip(),
+                    'postcode': request.POST.get('postcode', '').strip(),
                 }
             try:
                 resp = requests.patch(
@@ -740,6 +767,7 @@ def admin_dashboard(request):
     total_producer_payout = total_revenue - total_commission
     customers = [u for u in users if u.get('role') == 'CUSTOMER']
     producers = [u for u in users if u.get('role') == 'PRODUCER']
+    community_group_representatives = [u for u in users if u.get('role') == 'COMMUNITY-GROUP-REPRESENTATIVE']
 
     producer_breakdown = {}
     producer_food_miles = {}
@@ -814,6 +842,7 @@ def admin_dashboard(request):
         'producer_breakdown': producer_breakdown_list,
         'customer_count': len(customers),
         'producer_count': len(producers),
+        'community_group_representative_count': len(community_group_representatives),
         'total_food_miles': round(total_food_miles, 1),
         'producer_food_miles': producer_food_miles_list,
         'media_base_url': MEDIA_BASE_URL,
@@ -1021,7 +1050,7 @@ def admin_edit_user(request, user_id):
             payload['customer_profile'] = {
                 'first_name': request.POST.get('first_name', '').strip(),
                 'last_name': request.POST.get('last_name', '').strip(),
-                'delivery_address': request.POST.get('delivery_address', '').strip(),
+                'delivery_address': request.POST.get('customer_delivery_address', '').strip(),
                 'postcode': request.POST.get('customer_postcode', '').strip(),
             }
         elif role == 'PRODUCER':
@@ -1031,6 +1060,13 @@ def admin_edit_user(request, user_id):
                 'postcode': request.POST.get('producer_postcode', '').strip(),
                 'bio': request.POST.get('bio', '').strip(),
                 'stripe_account_id': request.POST.get('stripe_account_id', '').strip(),
+            }
+        elif role == 'COMMUNITY-GROUP-REPRESENTATIVE':
+            payload['community_profile'] = {
+                'organization_name': request.POST.get('organization_name', '').strip(),
+                'organization_type': request.POST.get('organization_type', '').strip(),
+                'delivery_address': request.POST.get('community_delivery_address', '').strip(),
+                'postcode': request.POST.get('community_postcode', '').strip(),
             }
         try:
             requests.patch(
@@ -1602,7 +1638,11 @@ def checkout_view(request):
                         timeout=5
                     )
                     if user_resp.status_code == 200:
-                        customer_postcode = (user_resp.json().get('customer_profile') or {}).get('postcode')
+                        profile_data = user_resp.json()
+                        customer_postcode = (
+                            (profile_data.get('customer_profile') or {}).get('postcode')
+                            or (profile_data.get('community_profile') or {}).get('postcode')
+                        )
                         if customer_postcode:
                             for group in items_by_producer:
                                 producer_postcode = (group.get('producer_profile') or {}).get('postcode')
@@ -1644,6 +1684,7 @@ def create_order(request):
     error = None
     delivery_dates = {}
     collection_types = {}
+    delivery_instructions = {}
 
     for key, value in request.POST.items():
         if key.startswith('delivery_date_'):
@@ -1652,6 +1693,9 @@ def create_order(request):
         elif key.startswith('collection_type_'):
             producer_id = key.replace('collection_type_', '')
             collection_types[producer_id] = value
+        elif key.startswith('delivery_instructions_'):
+            producer_id = key.replace('delivery_instructions_', '')
+            delivery_instructions[producer_id] = value.strip() or None
         
         # Get recurring order details
         make_recurring = request.POST.get('make_recurring') == 'on'
@@ -1684,6 +1728,7 @@ def create_order(request):
     request.session['pending_checkout'] = {
         'delivery_dates': delivery_dates,
         'collection_types': collection_types,
+        'delivery_instructions': delivery_instructions,
         'order_reference': pending_order_reference,
         'make_recurring': make_recurring,
         'order_day': order_day,
@@ -2171,7 +2216,7 @@ def producer_orders_view(request):
             orders = resp.json()
             # Calculate food miles for DELIVERED delivery orders only
             try:
-                for orders in orders:
+                for order in orders:
                     status = (order.get('status') or '').upper()
                     collection_type = (order.get('collection_type') or '').lower()
                     if status == 'DELIVERED' and 'collect' not in collection_type:

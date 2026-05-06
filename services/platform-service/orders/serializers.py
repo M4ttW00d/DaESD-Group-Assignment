@@ -45,7 +45,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'customer_order', 'customer', 'customer_username', 'customer_postcode',
             'customer_first_name', 'customer_last_name',
             'customer_phone', 'customer_email', 'delivery_address', 'collection_type',
-            'total_amount', 'commission_total', 'producer_id', 'producer_name', 'producer_total',
+            'total_amount', 'commission_total', 'producer_id', 'producer_name', 'producer_total', 'delivery_instruction',
             'status', 'status_logs', 'delivery_date', 'food_miles', 'created_at', 'items'
         )
         read_only_fields = ('id', 'customer_order', 'customer', 'total_amount', 'commission_total', 'created_at', 'items', 'producer_total', 'status_logs')

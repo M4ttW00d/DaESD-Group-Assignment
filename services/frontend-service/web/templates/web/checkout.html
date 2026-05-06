@@ -472,8 +472,9 @@ box-shadow: 0 0 0 3px rgba(44, 95, 46, 0.1);
 .form-textarea {
 resize: vertical;
 min-height: 100px;
+width: 100%;
+box-sizing: border-box;
 }
-
 .checkout-food-miles {
     display: inline-flex;
     align-items: center;
@@ -582,7 +583,7 @@ min-height: 100px;
 
                 <div class="form-group">
                     <label class="form-label">Collection Type <span class="required">*</span></label>
-                    <select name="collection_type_{{ producer_group.producer_id }}" class="form-select" required onchange="updateFoodMiles('{{ producer_group.producer_id }}', this.value)">
+                    <select id="collection_type_{{ producer_group.producer_id }}" name="collection_type_{{ producer_group.producer_id }}" class="form-select" required onchange="updateFoodMiles('{{ producer_group.producer_id }}', this.value); toggleDeliveryAddress('{{ producer_group.producer_id }}', this.value, '{{ request.session.role }}')">
                         <option value="">Select delivery or collect from producer</option>
                         <option value="Delivery">Deliver to my address</option>
                         <option value="Collection">Collect from producer</option>
@@ -593,6 +594,15 @@ min-height: 100px;
                     <label class="form-label">Delivery / Collection Date<span class="required">*</span></label>
                     <p>Note: a 48-hour lead time must be enforced on all orders to allow producers time to prepare.</p>
                     <input type="date" name="delivery_date_{{ producer_group.producer_id }}" class="form-input" min="{{ minimum_delivery_date }}" required>
+                </div>
+
+                <div id="delivery_instructions_{{ producer_group.producer_id }}" style="display:none;" class="form-group">
+                    <label class="form-label">Special Delivery Instructions (Optional)</label>
+                    <textarea 
+                        name="delivery_instructions_{{ producer_group.producer_id }}" 
+                        id="delivery_instructions_input_{{ producer_group.producer_id }}"
+                        class="form-textarea" 
+                        placeholder="Enter any special delivery instructions for the producer to see."></textarea>
                 </div>
 
             </div>
@@ -751,6 +761,23 @@ min-height: 100px;
         if (totalEl) {
             totalEl.style.display = hasAny ? 'flex' : 'none';
             totalEl.querySelector('span:last-child').textContent = total.toFixed(1) + ' miles';
+        }
+    }
+
+    function toggleDeliveryAddress(producerId, value, role) {
+        if(role !== "COMMUNITY-GROUP-REPRESENTATIVE"){
+            return;
+        }
+        const instructionsDiv = document.getElementById('delivery_instructions_' + producerId);
+        const instructionsInput = document.getElementById('delivery_instructions_input_' + producerId);
+        
+        if (value === 'Delivery') {
+            instructionsDiv.style.display = 'block';
+            instructionsInput.required = true;
+        } else {
+            instructionsDiv.style.display = 'none';
+            instructionsInput.required = false;
+            instructionsInput.value = '';
         }
     }
 

@@ -128,6 +128,7 @@
         width: 100%;
         border-collapse: collapse;
         margin-top: 1rem;
+        margin-bottom: 1rem;
     }
 
     .items-table th,
@@ -245,6 +246,10 @@
                 {% endfor %}
             </tbody>
         </table>
+        {% if order.delivery_instruction %}
+        <h3>Special Delivery Instructions</h3>
+        <p>{{ order.delivery_instruction }}</p>
+        {% endif %}
         <div class="order-total">
             Total (Your Share): £{{ order.producer_total|default:"0.00"|floatformat:2 }}
         </div>

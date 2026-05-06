@@ -229,6 +229,7 @@
 }
 .role-customer { background: #e8f5ee; color: #00622e; }
 .role-producer { background: #fdf1ea; color: #c85a1e; }
+.role-community-group-representative { background: #ffd480; color: #b37700; }
 .role-admin    { background: #e8eaf6; color: #3949ab; }
 
 .status-badge {
@@ -715,7 +716,26 @@
                     </td>
                     <td>{{ user.phone_number|default:"—" }}</td>
                     <td>
-                        <script type="application/json" id="user-data-{{ user.id }}">{"id": {{ user.id }}, "username": "{{ user.username|escapejs }}", "email": "{{ user.email|default:''|escapejs }}", "phone": "{{ user.phone_number|default:''|escapejs }}", "role": "{{ user.role }}", "firstName": "{{ user.customer_profile.first_name|default:''|escapejs }}", "lastName": "{{ user.customer_profile.last_name|default:''|escapejs }}", "deliveryAddress": "{{ user.customer_profile.delivery_address|default:''|escapejs }}", "customerPostcode": "{{ user.customer_profile.postcode|default:''|escapejs }}", "businessName": "{{ user.producer_profile.business_name|default:''|escapejs }}", "businessAddress": "{{ user.producer_profile.business_address|default:''|escapejs }}", "producerPostcode": "{{ user.producer_profile.postcode|default:''|escapejs }}", "bio": "{{ user.producer_profile.bio|default:''|escapejs }}", "stripeAccountId": "{{ user.producer_profile.stripe_account_id|default:''|escapejs }}"}</script>
+                        <script type="application/json" id="user-data-{{ user.id }}">
+                            {"id": {{ user.id }},
+                            "username": "{{ user.username|escapejs }}",
+                            "email": "{{ user.email|default:''|escapejs }}",
+                            "phone": "{{ user.phone_number|default:''|escapejs }}",
+                            "role": "{{ user.role }}",
+                            "firstName": "{{ user.customer_profile.first_name|default:''|escapejs }}",
+                            "lastName": "{{ user.customer_profile.last_name|default:''|escapejs }}",
+                            "organizationName": "{{ user.community_profile.organization_name|default:''|escapejs }}",
+                            "organizationType": "{{ user.community_profile.organization_type|default:''|escapejs }}",
+                            "communityDeliveryAddress": "{{ user.community_profile.delivery_address|default:''|escapejs }}",
+                            "customerDeliveryAddress": "{{ user.customer_profile.delivery_address|default:''|escapejs }}",
+                            "communityPostcode": "{{ user.community_profile.postcode|default:'' }}",
+                            "customerPostcode": "{{ user.customer_profile.postcode|default:''|escapejs }}",
+                            "businessName": "{{ user.producer_profile.business_name|default:''|escapejs }}",
+                            "businessAddress": "{{ user.producer_profile.business_address|default:''|escapejs }}",
+                            "producerPostcode": "{{ user.producer_profile.postcode|default:''|escapejs }}",
+                            "bio": "{{ user.producer_profile.bio|default:''|escapejs }}",
+                            "stripeAccountId": "{{ user.producer_profile.stripe_account_id|default:''|escapejs }}"}
+                        </script>
                         <button class="btn-sm-edit" onclick="openEditModalFromBtn({{ user.id }})">Edit</button>
                         {% if user.role != 'ADMIN' %}
                         <button type="button" class="btn-sm-danger" onclick="showConfirmModal('Delete User', 'Delete user {{ user.username }}? This cannot be undone.', '/admin-dashboard/users/{{ user.id }}/delete/')">Delete</button>
@@ -1157,6 +1177,7 @@
                 <select class="form-select" id="edit-role" name="role" onchange="toggleModalProfileFields(this.value)">
                     <option value="CUSTOMER">Customer</option>
                     <option value="PRODUCER">Producer</option>
+                    <option value="COMMUNITY-GROUP-REPRESENTATIVE">Community Group Representative</option>
                     <option value="ADMIN">Admin</option>
                 </select>
             </div>
@@ -1176,7 +1197,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Delivery Address</label>
-                    <input class="form-input" type="text" id="edit-delivery-address" name="delivery_address">
+                    <input class="form-input" type="text" id="edit-customer-delivery-address" name="customer_delivery_address">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Postcode</label>
@@ -1207,6 +1228,29 @@
                     <label class="form-label">Stripe Connected Account ID</label>
                     <input class="form-input" type="text" id="edit-stripe-account-id" name="stripe_account_id" placeholder="acct_xxxxxxxxxxxxx">
                     <small style="color:var(--text-muted);font-size:0.77rem;">Used for automated weekly payouts. Leave blank to skip transfers for this producer.</small>
+                </div>
+            </div>
+
+            <!-- Community Group Representative profile fields -->
+            <div id="modal-community-fields">
+                <p class="modal-section-title">Community Group Representative Profile</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Organization Name</label>
+                        <input class="form-input" type="text" id="edit-organization-name" name="organization_name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Organization Type</label>
+                        <input class="form-input" type="text" id="edit-organization-type" name="organization_type">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Delivery Address</label>
+                    <input class="form-input" type="text" id="edit-community-delivery-address" name="community_delivery_address">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Postcode</label>
+                    <input class="form-input" type="text" id="edit-community-postcode" name="community_postcode">
                 </div>
             </div>
 
@@ -1435,6 +1479,26 @@ function sortTable(tableId, colIndex) {
 function toggleModalProfileFields(role) {
     document.getElementById('modal-customer-fields').style.display = role === 'CUSTOMER' ? '' : 'none';
     document.getElementById('modal-producer-fields').style.display = role === 'PRODUCER' ? '' : 'none';
+    document.getElementById('modal-community-fields').style.display = role === 'COMMUNITY-GROUP-REPRESENTATIVE' ? '' : 'none';
+}
+
+function copySessionId(sessionId, btn) {
+    navigator.clipboard.writeText(sessionId).then(() => {
+        btn.classList.add('copied');
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.textContent = 'Copy';
+        }, 1500);
+    });
+}
+
+function copyToClipboard(text, btn) {
+    copySessionId(text, btn);
+}
+
+function sortTableByCol(tableId, colIndex) {
+    sortTable(tableId, colIndex);
 }
 
 function copySessionId(sessionId, btn) {
@@ -1459,19 +1523,24 @@ function sortTableByCol(tableId, colIndex) {
 function openEditModalFromBtn(userId) {
     const data = JSON.parse(document.getElementById('user-data-' + userId).textContent);
     openEditModal(data.id, data.username, data.email, data.phone, data.role,
-        data.firstName, data.lastName, data.deliveryAddress, data.customerPostcode,
-        data.businessName, data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId);
+        data.firstName, data.lastName, data.organizationName, data.organizationType,
+        data.customerDeliveryAddress, data.communityDeliveryAddress, data.customerPostcode, data.communityPostcode, data.businessName,
+        data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId);
 }
 
-function openEditModal(id, username, email, phone, role, firstName, lastName, deliveryAddress, customerPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId) {
+function openEditModal(id, username, email, phone, role, firstName, lastName, organizationName, organizationType, customerDeliveryAddress, communityDeliveryAddress, customerPostcode, communityPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId) {
     document.getElementById('edit-username').value = username;
     document.getElementById('edit-email').value = email;
     document.getElementById('edit-phone').value = phone;
     document.getElementById('edit-role').value = role;
     document.getElementById('edit-first-name').value = firstName;
     document.getElementById('edit-last-name').value = lastName;
-    document.getElementById('edit-delivery-address').value = deliveryAddress;
+    document.getElementById('edit-organization-name').value = organizationName;
+    document.getElementById('edit-organization-type').value = organizationType;
+    document.getElementById('edit-customer-delivery-address').value = customerDeliveryAddress;
+    document.getElementById('edit-community-delivery-address').value = communityDeliveryAddress;
     document.getElementById('edit-customer-postcode').value = customerPostcode;
+    document.getElementById('edit-community-postcode').value = communityPostcode;
     document.getElementById('edit-business-name').value = businessName;
     document.getElementById('edit-business-address').value = businessAddress;
     document.getElementById('edit-producer-postcode').value = producerPostcode;

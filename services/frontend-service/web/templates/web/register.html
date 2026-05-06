@@ -126,6 +126,12 @@
     color: var(--green);
 }
 
+.role-option input[type="checkbox"]:checked + .role-label {
+    border-color: var(--green);
+    background: #e8f2eb;
+    color: var(--green);
+}
+
 .role-icon { font-size: 1.5rem; }
 
 /* Dynamic profile sections */
@@ -251,6 +257,12 @@
                         </label>
                     </div>
                 </div>
+                <div class="role-option" id="community-btn">
+                    <input type="checkbox" id="role-community" name="role" value="COMMUNITY-GROUP-REPRESENTATIVE" hidden>
+                    <label class="role-label" for="role-community">
+                        ✅ Community Group Representative
+                    </label>
+                </div>
             </div>
 
             <!-- Core account fields -->
@@ -335,6 +347,34 @@
                 </div>
             </div>
 
+            <!-- Community Group Representative profile fields -->
+            <div class="profile-section" id="community-fields">
+                <p class="profile-section-title">Delivery Details</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="organization_name">Organization Name</label>
+                        <input class="form-input" type="text" id="organization_name" name="organization_name"
+                            placeholder="Organization name" value="{{ form_data.organization_name|default:'' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="organization_type">Organization Type</label>
+                        <input class="form-input" type="text" id="organization_type" name="organization_type"
+                            placeholder="Charity, Educational, .." value="{{ form_data.organization_type|default:'' }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="delivery_address">Delivery Address</label>
+                    <input class="form-input" type="text" id="delivery_address" name="delivery_address"
+                        placeholder="Street address" value="{{ form_data.delivery_address|default:'' }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="community_postcode">Postcode <span class="required">*</span></label>
+                    <input class="form-input" type="text" id="community_postcode" name="community_postcode"
+                        placeholder="e.g. BS1 1AA" value="{{ form_data.community_postcode|default:'' }}">
+                    <p class="hint">Used to calculate food miles from producers to you.</p>
+                </div>
+            </div>
+
             <button class="btn-submit" type="submit">Create Account</button>
         </form>
 
@@ -351,17 +391,40 @@
     const radios = document.querySelectorAll('input[name="role"]');
     const customerFields = document.getElementById('customer-fields');
     const producerFields = document.getElementById('producer-fields');
+    const communityFields = document.getElementById('community-fields');
+    const communityCheck = document.getElementById('role-community');
+    const communityButton = document.getElementById('community-btn');
 
     radios.forEach(radio => {
         radio.addEventListener('change', () => {
             if (radio.value === 'CUSTOMER') {
                 customerFields.classList.add('active');
                 producerFields.classList.remove('active');
+                communityButton.style.display = 'block';
+                communityCheck.checked = false;
             } else {
                 producerFields.classList.add('active');
                 customerFields.classList.remove('active');
+                communityButton.style.display = 'none';
+                communityFields.classList.remove('active');
+                if (radio.value === 'PRODUCER') {
+                    communityCheck.checked = false;
+                }
             }
         });
+    });
+
+    communityCheck.addEventListener('change', () => {
+        communityButton.style.display = 'block';
+        if (communityCheck.checked){
+            customerFields.classList.remove('active');
+            producerFields.classList.remove('active');
+            communityFields.classList.add('active');
+        } else {
+            customerFields.classList.add('active');
+            communityFields.classList.remove('active');
+            producerFields.classList.remove('active');
+        }
     });
 
     // ── VALIDATION ───────────────────────────────────────────────────────────
@@ -397,7 +460,9 @@
         clearFieldErrors();
         let valid = true;
 
-        const role = document.querySelector('input[name="role"]:checked').value;
+        const isCommunity = document.getElementById('role-community').checked;
+        const role = isCommunity ? 'COMMUNITY-GROUP-REPRESENTATIVE'
+                    : document.querySelector('input[name="role"]:checked').value;
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
         const email = document.getElementById('email').value.trim();
@@ -497,6 +562,20 @@
             }
             if (EMOJI_RE.test(bio)) {
                 showFieldError('bio', 'Bio cannot contain emojis.');
+                valid = false;
+            }
+        }
+
+        if (isCommunity) {
+            const postcode = document.getElementById('community_postcode').value.trim();
+            if (!postcode) {
+                showFieldError('community_postcode', 'Postcode is required.');
+                valid = false;
+            } else if (EMOJI_RE.test(postcode) || NON_ASCII_RE.test(postcode)) {
+                showFieldError('community_postcode', 'Postcode cannot contain emojis or special characters.');
+                valid = false;
+            } else if (!/^[A-Z]{1,2}[0-9][0-9A-Z]?[ ]*[0-9][A-Z]{2}$/i.test(postcode)) {
+                showFieldError('community_postcode', 'Please enter a valid UK postcode (e.g. BS1 1AA).');
                 valid = false;
             }
         }

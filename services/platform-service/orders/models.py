@@ -68,6 +68,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     delivery_date = models.DateField(blank=True, null=True)
     collection_type = models.CharField(blank=True, null=True, max_length=50)
+    delivery_instruction = models.CharField(blank=True, null=True, max_length=250, help_text=_("Instructions to be left for producers on delivery orders by community group representatives."))
     food_miles = models.DecimalField(
         max_digits=8, decimal_places=1, blank=True, null=True,
         help_text=_("Distance in miles from producer to customer, calculated at order placement. Null for collection orders.")
