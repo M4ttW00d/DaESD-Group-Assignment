@@ -253,6 +253,27 @@ font-size: 1.5rem;
 color: var(--text);
 margin-bottom: 0.5rem;
 }
+.payout-table {
+width: 100%;
+border-collapse: collapse;
+margin-bottom: 2rem;
+background: var(--card-bg);
+box-shadow: var(--shadow);
+border-radius: 8px;
+overflow: hidden;
+}
+.payout-table th, .payout-table td {
+padding: 0.9rem;
+text-align: left;
+border-bottom: 1px solid var(--border);
+}
+.payout-table th {
+background: var(--cream-dark);
+font-weight: 700;
+font-size: 0.8rem;
+text-transform: uppercase;
+color: var(--text-muted);
+}
 {% endblock %}
 
 {% block content %}
@@ -277,6 +298,14 @@ margin-bottom: 0.5rem;
         <div class="metric-card">
             <div class="metric-label">Total Listings</div>
             <div class="metric-value">{{ products|length }}</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Total Payouts Recorded</div>
+            <div class="metric-value">£{{ payout_total|floatformat:2 }}</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Transferred Settlements</div>
+            <div class="metric-value">{{ transferred_count }}</div>
         </div>
     </div>
 
@@ -312,15 +341,18 @@ margin-bottom: 0.5rem;
                     <span class="badge badge-category">{{ product.category }}</span>
                     {% endif %}
                     {% if product.is_organic %}
-                    <span class="badge badge-organic">Organic</span>
+                    <span class="badge badge-organic">🌿 Organic</span>
                     {% endif %}
                 </div>
 
                 <div class="card-stock-badge">
-                    {% if not product.is_available %}
+                    {% if not product.is_currently_in_season and product.seasonal_availability_text %}
+                    <span class="badge badge-unavailable">Out of Season</span>
+                    {% elif not product.is_available %}
                     <span class="badge badge-unavailable">Unavailable</span>
-                    {% elif product.stock_quantity <= 5 %} <span class="badge badge-low-stock">Low stock</span>
-                        {% endif %}
+                    {% elif product.stock_quantity <= 5 %}
+                    <span class="badge badge-low-stock">Low stock</span>
+                    {% endif %}
                 </div>
             </div>
 
@@ -345,7 +377,7 @@ margin-bottom: 0.5rem;
                         <span>per {{ product.unit|default:"item" }}</span>
                     </div>
                     <div class="card-stock-info">
-                        <strong>{{ product.stock_quantity }}</strong><br>in stock
+                        <strong>{% if not product.is_available %}—{% else %}{{ product.stock_quantity }}{% endif %}</strong><br>in stock
                     </div>
                 </div>
             </div>
@@ -358,6 +390,50 @@ margin-bottom: 0.5rem;
         </div>
         {% endfor %}
     </div>
+
+    <div class="section-header" style="margin-top:3rem;">
+        <h2>Recent Payouts</h2>
+    </div>
+
+    {% if payouts %}
+    <table class="payout-table">
+        <thead>
+            <tr>
+                <th>Settlement</th>
+                <th>Period</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Transfer ID</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in payouts %}
+            <tr>
+                <td>#{{ p.settlement_id }}</td>
+                <td>{{ p.week_start }} → {{ p.week_end }}</td>
+                <td><strong>£{{ p.amount|floatformat:2 }}</strong></td>
+                <td>
+                    {% if p.status == 'TRANSFERRED' %}
+                    <span class="badge badge-organic">TRANSFERRED</span>
+                    {% elif p.status == 'SKIPPED' %}
+                    <span class="badge badge-category">SKIPPED</span>
+                    {% elif p.status == 'FAILED' %}
+                    <span class="badge" style="background:#fde8e8;color:#a0422a;">FAILED</span>
+                    {% else %}
+                    <span class="badge badge-category">{{ p.status }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-family:monospace;font-size:0.8rem;">{{ p.transfer_id|default:"—" }}</td>
+                <td style="color:var(--text-muted);font-size:0.85rem;">{{ p.error_message|default:"" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="padding:2rem 0;color:var(--text-muted);">No payout records yet — your earnings will appear here after the admin runs a weekly settlement.</div>
+    {% endif %}
+
 </div>
 <br><br>
 {% endblock %}

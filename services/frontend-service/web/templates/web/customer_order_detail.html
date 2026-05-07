@@ -23,9 +23,12 @@
     color: #fff;
 }
 
-.action-buttons{
+.action-buttons {
     margin-top: 2.5rem;
     margin-bottom: 5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 /* -- ORDER HEADER & SUMMARY -- */
@@ -124,6 +127,26 @@
     color: var(--text-muted);
 }
 
+.producer-order-food-miles {
+    font-size: 14px;
+    color: var(--green);
+    font-weight: 600;
+}
+
+.food-miles-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1.25rem;
+    background: var(--green-light);
+    border: 1px solid #b8dfc8;
+    border-radius: 8px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    color: var(--green);
+}
+.food-miles-summary strong { font-size: 1.1rem; }
+
 .producer-order-items {
     display: flex;
     flex-direction: column;
@@ -218,6 +241,14 @@
                         <span class="producer-order-subtotal">Subtotal: £{{ producer_order.total_amount|floatformat:2 }}</span>
                         <span class="producer-order-subtotal">Delivery date: {{ producer_order.delivery_date }}</span>
                         <span class="producer-order-subtotal">Collection type: {{ producer_order.collection_type }}</span>
+                        {% if producer_order.delivery_instruction is not None %}
+                        <span class="producer-order-subtotal">Delivery Instructions: {{ producer_order.delivery_instruction }}</span>
+                        {% endif %}
+                        {% if producer_order.food_miles is not None %}
+                        <span class="producer-order-food-miles">
+                            🌍 {% if producer_order.food_miles == 0 %}0 food miles (collection){% else %}{{ producer_order.food_miles }} food miles{% endif %}
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
                 <span class="status-badge status-{{ producer_order.status|default:'unknown'|lower }}">
@@ -231,6 +262,9 @@
                     <div class="order-item-right">
                         <span class="order-item-qty">x{{ item.quantity }}</span>
                         <span class="order-item-price">£{{ item.price_at_sale|floatformat:2 }} each</span>
+                        {% if producer_order.status == 'DELIVERED' %}
+                        <a href="{% url 'write_review' product_id=item.product %}" class="btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">Write Review</a>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -239,12 +273,71 @@
         {% endfor %}
     </div>
 
+    {% if order.total_food_miles is not None %}
+    <div class="food-miles-summary">
+        <span>🌍 Total food miles for this order:</span>
+        <strong>{{ order.total_food_miles }} miles</strong>
+    </div>
+    {% endif %}
+
     <!-- Actions -->
     <div class="action-buttons">
-        <a href="/" class="btn-secondary" style="text-decoration: none;">← Continue Shopping</a>
-        <a href="/orders/" class="btn-secondary" style="text-decoration: none; margin-left: 1rem;">View All Orders</a>
+        <a href="/orders/" class="btn-secondary" style="text-decoration: none;">← All Orders</a>
+        <form method="post" action="/orders/{{ order.id }}/reorder/">
+            {% csrf_token %}
+            <button type="submit" class="btn-secondary">Reorder</button>
+        </form>
+
+        <a href="/" class="btn-secondary" style="text-decoration: none;">Continue Shopping</a>
+        
+        {% if order.can_cancel %}
+            <form method="post" id="cancel-order-form" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="cancel_order" value="1">
+                <button type="button" class="btn-secondary" id="cancel-btn" style="background-color: #d9534f; color: white;">
+                    Cancel Order
+                </button>
+            </form>
+        {% elif order.overall_status == 'CANCELLED' %}
+            <form method="post" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="retry_refund" value="1">
+                <button type="submit" class="btn-secondary">Retry Refund</button>
+            </form>
+        {% endif %}
     </div>
 
     {% endif %}
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const cancelButton = document.getElementById('cancel-btn');
+
+        if (cancelButton) {
+            cancelButton.addEventListener('click', (e) => {
+                e.preventDefault();
+
+                const currentUrl = window.location.pathname;
+
+                showConfirmModal(
+                    'Cancel Order',
+                    'Are you sure you want to cancel this order? A full refund will be issued and the producer will be notified on cancellation.',
+                    currentUrl,
+                    '1'
+                );
+
+                const hiddenInput = document.getElementById('confirm-hidden-action');
+                if (hiddenInput) {
+                    hiddenInput.name = 'cancel_order';
+                }
+
+                const confirmBtn = document.querySelector('.btn-confirm-delete');
+                if (confirmBtn) confirmBtn.textContent = 'Confirm Cancellation';
+                
+                const backBtn = document.getElementById('confirm-cancel-btn');
+                if (backBtn) backBtn.textContent = 'Go Back';
+            });
+        }
+    });
+</script>
 {% endblock %}

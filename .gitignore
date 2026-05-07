@@ -10,9 +10,16 @@ __pycache__/
 ############################
 *.sqlite3
 db.sqlite3
-media/
+# Only ignore user uploads, keep seed images
+media/*
+!media/products/
+media/products/*
+!media/products/bread.jpg
+!media/products/carrot.jpg
+!media/products/milk.jpg
 staticfiles/
 *.log
+.env.secure
 
 ############################
 # Virtual environments
@@ -38,3 +45,8 @@ DaESD-Group-Assignment.code-workspace
 .DS_Store
 Thumbs.db
 
+#Stripe payments key file (it's in teams chat)
+/services/payment-gateway-service/env.secure
+
+#Brevo email API key file (it's in teams chat)
+/services/notifications-service/.env.secure

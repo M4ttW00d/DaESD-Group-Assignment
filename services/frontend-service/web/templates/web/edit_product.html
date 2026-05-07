@@ -132,18 +132,24 @@ margin-top: 0.2rem;
 .allergen-checkbox-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
 .allergen-checkbox-item input[type="checkbox"]:checked + span { color: var(--green); font-weight: 600; }
 
-.file-input {
-background: #fff;
-border: 2px dashed var(--border);
-padding: 1.5rem;
-text-align: center;
-border-radius: 8px;
-cursor: pointer;
-transition: border-color 0.2s;
+.file-input-wrapper {
+    background: #fff;
+    border: 2px dashed var(--border);
+    padding: 1.5rem;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    display: block;
 }
 
-.file-input:hover {
-border-color: var(--green);
+.file-input-wrapper:hover {
+    border-color: var(--green);
+}
+
+.file-input-wrapper input[type="file"] {
+    display: block;
+    margin: 0 auto;
 }
 
 .btn-primary {
@@ -252,6 +258,12 @@ display: block;
                     value="{{ product.stock_quantity|default:0 }}" min="0" required>
             </div>
 
+            <div class="form-group">
+                <label class="form-label">Low Stock Alert Threshold</label>
+                <input type="number" name="low_stock_threshold" class="form-input"
+                    value="{{ product.low_stock_threshold|default:10 }}" min="0">
+            </div>
+
             <div class="form-group full-width">
                 <label class="form-label">Description</label>
                 <textarea name="description" class="form-textarea">{{ product.description|default:'' }}</textarea>
@@ -298,13 +310,66 @@ display: block;
                 <label for="is_organic">Certified Organic Product</label>
             </div>
 
-            <div class="form-group full-width checkbox-group">
-                {% if product.is_available %}
-                <input type="checkbox" name="is_available" id="is_available" value="true" checked>
-                {% else %}
-                <input type="checkbox" name="is_available" id="is_available" value="true">
-                {% endif %}
-                <label for="is_available">In Season / Available for Purchase</label>
+            <div class="form-group full-width" style="border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1rem;">
+                <label class="form-label" style="font-size: 1rem; color: var(--green);">Availability Status</label>
+                <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem; margin-bottom: 1rem;">
+                    <label class="checkbox-group" style="margin:0;">
+                        <input type="radio" name="availability_status" value="ALWAYS" onchange="toggleSeasonalFields()" 
+                        {% if product.is_available and not product.seasonal_start_month %}checked{% endif %}>
+                        <span>Always Available</span>
+                    </label>
+                    <label class="checkbox-group" style="margin:0;">
+                        <input type="radio" name="availability_status" value="IN_SEASON" onchange="toggleSeasonalFields()"
+                        {% if product.is_available and product.seasonal_start_month %}checked{% endif %}>
+                        <span>In Season</span>
+                    </label>
+                    <label class="checkbox-group" style="margin:0;">
+                        <input type="radio" name="availability_status" value="OUT_OF_STOCK" onchange="toggleSeasonalFields()"
+                        {% if not product.is_available %}checked{% endif %}>
+                        <span>Out of Stock</span>
+                    </label>
+                </div>
+                
+                <div id="seasonal_fields" style="display: none; border-left: 3px solid var(--green); padding-left: 1rem;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Seasonal Start Month <span class="required">*</span></label>
+                            <select name="seasonal_start_month" id="seasonal_start_month" class="form-select">
+                                <option value="">Select Month</option>
+                                <option value="1" {% if product.seasonal_start_month == 1 %}selected{% endif %}>January</option>
+                                <option value="2" {% if product.seasonal_start_month == 2 %}selected{% endif %}>February</option>
+                                <option value="3" {% if product.seasonal_start_month == 3 %}selected{% endif %}>March</option>
+                                <option value="4" {% if product.seasonal_start_month == 4 %}selected{% endif %}>April</option>
+                                <option value="5" {% if product.seasonal_start_month == 5 %}selected{% endif %}>May</option>
+                                <option value="6" {% if product.seasonal_start_month == 6 %}selected{% endif %}>June</option>
+                                <option value="7" {% if product.seasonal_start_month == 7 %}selected{% endif %}>July</option>
+                                <option value="8" {% if product.seasonal_start_month == 8 %}selected{% endif %}>August</option>
+                                <option value="9" {% if product.seasonal_start_month == 9 %}selected{% endif %}>September</option>
+                                <option value="10" {% if product.seasonal_start_month == 10 %}selected{% endif %}>October</option>
+                                <option value="11" {% if product.seasonal_start_month == 11 %}selected{% endif %}>November</option>
+                                <option value="12" {% if product.seasonal_start_month == 12 %}selected{% endif %}>December</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seasonal End Month <span class="required">*</span></label>
+                            <select name="seasonal_end_month" id="seasonal_end_month" class="form-select">
+                                <option value="">Select Month</option>
+                                <option value="1" {% if product.seasonal_end_month == 1 %}selected{% endif %}>January</option>
+                                <option value="2" {% if product.seasonal_end_month == 2 %}selected{% endif %}>February</option>
+                                <option value="3" {% if product.seasonal_end_month == 3 %}selected{% endif %}>March</option>
+                                <option value="4" {% if product.seasonal_end_month == 4 %}selected{% endif %}>April</option>
+                                <option value="5" {% if product.seasonal_end_month == 5 %}selected{% endif %}>May</option>
+                                <option value="6" {% if product.seasonal_end_month == 6 %}selected{% endif %}>June</option>
+                                <option value="7" {% if product.seasonal_end_month == 7 %}selected{% endif %}>July</option>
+                                <option value="8" {% if product.seasonal_end_month == 8 %}selected{% endif %}>August</option>
+                                <option value="9" {% if product.seasonal_end_month == 9 %}selected{% endif %}>September</option>
+                                <option value="10" {% if product.seasonal_end_month == 10 %}selected{% endif %}>October</option>
+                                <option value="11" {% if product.seasonal_end_month == 11 %}selected{% endif %}>November</option>
+                                <option value="12" {% if product.seasonal_end_month == 12 %}selected{% endif %}>December</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Surplus Deals Section -->
@@ -353,6 +418,25 @@ display: block;
                     }
                 }
                 
+                function toggleSeasonalFields() {
+                    const statusElem = document.querySelector('input[name="availability_status"]:checked');
+                    if (!statusElem) return;
+                    const status = statusElem.value;
+                    const seasonalFields = document.getElementById('seasonal_fields');
+                    const startInput = document.getElementById('seasonal_start_month');
+                    const endInput = document.getElementById('seasonal_end_month');
+                    
+                    if (status === 'IN_SEASON') {
+                        seasonalFields.style.display = 'block';
+                        startInput.required = true;
+                        endInput.required = true;
+                    } else {
+                        seasonalFields.style.display = 'none';
+                        startInput.required = false;
+                        endInput.required = false;
+                    }
+                }
+                
                 // Initialize required state on load
                 document.addEventListener('DOMContentLoaded', () => {
                     const isSurplus = document.getElementById('is_surplus').checked;
@@ -360,19 +444,23 @@ display: block;
                         document.getElementById('discount_percentage').required = true;
                         document.getElementById('surplus_expiry').required = true;
                     }
+                    toggleSeasonalFields();
                 });
             </script>
 
             <div class="form-group full-width">
-                <label class="form-label" style="color: var(--text-muted)">Product Image (Coming Soon)</label>
+                <label class="form-label" for="image">Product Image</label>
                 {% if product.image %}
-                <img src="{{ media_base_url }}/media/{{ product.image }}" alt="Current Image" class="current-image"
-                    style="opacity: 0.7;">
+                <div style="margin-bottom: 1rem;">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Current Image:</p>
+                    <img src="{{ media_base_url }}/media/{{ product.image }}" alt="Current Image" 
+                        style="max-width: 300px; max-height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); display: block;">
+                </div>
                 {% endif %}
-                <input type="file" name="image" class="file-input" accept="image/*" disabled
-                    style="opacity: 0.5; cursor: not-allowed;">
-                <span class="form-help">Image uploading is temporarily disabled. Your current image (if any) is
-                    preserved.</span>
+                <div class="file-input-wrapper">
+                    <input type="file" id="image" name="image" accept="image/*">
+                </div>
+                <span class="form-help">Upload a new image to replace the current one.</span>
             </div>
 
             <button type="submit" class="btn-primary">Save Changes</button>

@@ -4,8 +4,9 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from .views import (
-    UserRegistrationView, UserDetailView, UserListView, 
-    UserAdminDetailView, ProducerPublicDetailView, ProducerPublicProfileView
+    UserRegistrationView, UserDetailView, UserListView,
+    UserAdminDetailView, ProducerPublicDetailView, ProducerPublicProfileView,
+    FavouriteProducerView
 )
 
 urlpatterns = [
@@ -17,4 +18,6 @@ urlpatterns = [
     path('users/<int:pk>/', UserAdminDetailView.as_view(), name='user_admin_detail'),
     path('public-producers/<int:pk>/', ProducerPublicDetailView.as_view(), name='producer_public_detail'),
     path('public-producers/<int:pk>/profile/', ProducerPublicProfileView.as_view(), name='producer_public_profile'),
+    path('favourites/', FavouriteProducerView.as_view(), name='favourite-list'),
+    path('favourites/<int:producer_id>/', FavouriteProducerView.as_view(), name='favourite-toggle'),
 ]

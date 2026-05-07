@@ -7,19 +7,19 @@ from .serializers import BasketSerializer
 from products.models import Product
 
 
-class IsCustomer(permissions.BasePermission):
+class IsCustomerOrCommunityRepresentative(permissions.BasePermission):
     """
     Custom permission to only allow Customers to add product items to their basket.
     """
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'CUSTOMER'
+        return request.user.is_authenticated and request.user.role == 'CUSTOMER' or request.user.role == 'COMMUNITY-GROUP-REPRESENTATIVE'
     
 class CheckoutView(generics.RetrieveAPIView):
     """
     Get the authenticated customer's basket.
     """
     serializer_class = BasketSerializer
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def get_object(self):
         basket= Basket.objects.get(customer=self.request.user)
@@ -31,7 +31,7 @@ class BasketView(generics.RetrieveAPIView):
     Creates basket if it doesn't exist.
     """
     serializer_class = BasketSerializer
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def get_object(self):
         basket, created = Basket.objects.get_or_create(customer=self.request.user)
@@ -42,7 +42,7 @@ class AddToBasketView(APIView):
     """
     Add a product to the customer's basket or update quantity if already exists.
     """
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def post(self, request):
         product_id = request.data.get('product_id')
@@ -55,6 +55,8 @@ class AddToBasketView(APIView):
             quantity = int(quantity)
             if quantity < 1:
                 return Response({'error': 'Quantity must be at least 1'}, status=status.HTTP_400_BAD_REQUEST)
+            elif quantity > 10 and request.user.role == "CUSTOMER":
+                return Response({'error': 'Only a maximum of 10 items are allowed per product. If you would like to place bulk orders, please register as a community group representative.'}, status=status.HTTP_400_BAD_REQUEST)
         except ValueError:
             return Response({'error': 'Invalid quantity'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -63,6 +65,12 @@ class AddToBasketView(APIView):
         if product.stock_quantity < quantity:
             return Response(
                 {'error': f'Only {product.stock_quantity} units available in stock'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not product.is_available or not product.is_currently_in_season:
+            return Response(
+                {'error': 'This product is currently unavailable or not in season. Please check again later for restocks or seasonal updates.'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -102,7 +110,7 @@ class UpdateBasketItemView(APIView):
     """
     Update quantity of a specific basket item.
     """
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def patch(self, request, item_id):
         basket = get_object_or_404(Basket, customer=request.user)
@@ -136,7 +144,7 @@ class RemoveFromBasketView(APIView):
     """
     Remove an item from the basket.
     """
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def delete(self, request, item_id):
         basket = get_object_or_404(Basket, customer=request.user)
@@ -151,7 +159,7 @@ class ClearBasketView(APIView):
     """
     Remove all items from the basket.
     """
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrCommunityRepresentative]
 
     def delete(self, request):
         basket = get_object_or_404(Basket, customer=request.user)

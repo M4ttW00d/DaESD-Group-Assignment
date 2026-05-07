@@ -3,10 +3,26 @@
 {% block title %}Checkout — BRFN{% endblock %}
 
 {% block extra_styles %}
+.dashboard-header {
+    background: var(--nav-bg);
+    padding: 3rem 0;
+    color: #fff;
+    margin-bottom: 2rem;
+}
+.dashboard-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+.dashboard-title h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
 /* -- BREADCRUMB -- */
 .breadcrumb {
-    padding: 1rem 0;
-    margin-top: 1.5rem;
     background: none;
     font-size: 0.8rem;
     color: var(--text-muted);
@@ -263,17 +279,6 @@
     align-items: center;
 }
 
-/* -- RESULT BANNERS -- */
-.success-banner {
-    background: #85ce77;
-    border: 1px solid #529943;
-    color: #0c3803;
-    padding: 0.75rem 1.25rem;
-    border-radius: 8px;
-    margin: 1rem 0;
-    font-size: 0.875rem;
-}
-
 /* -- PRODUCER GROUPING -- */
 /* -- PRODUCER SECTION -- */
 
@@ -472,11 +477,73 @@ box-shadow: 0 0 0 3px rgba(44, 95, 46, 0.1);
 .form-textarea {
 resize: vertical;
 min-height: 100px;
+width: 100%;
+box-sizing: border-box;
+}
+.checkout-food-miles {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--green-light);
+    border: 1px solid #b8dfc8;
+    border-radius: 6px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.875rem;
+    color: var(--green);
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.checkout-total-miles {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--green-light);
+    border: 1px solid #b8dfc8;
+    border-radius: 8px;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: var(--green);
+    font-weight: 600;
+}
+
+.recurring-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.recurring-section {
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    padding-top: 1.25rem;
+}
+
+.recurring-section h4 {
+    margin-bottom: 1rem;
+}
+
+.recurring-section p {
+    opacity: 0.85;
+    margin-top: 0.75rem;
 }
 
 {% endblock %}
 
 {% block content %}
+<section class="dashboard-header">
+    <div class="container dashboard-header-inner">
+        <div class="dashboard-title">
+            <h1>Checkout & Proceed To Payment</h1>
+            <p>View your order summary and set up delivery/collection Information.</p>
+        </div>
+        <a href="/basket/" class="btn-secondary" style="text-decoration: none;">← Return to modify basket...</a>
+    </div>
+</section>
+
 <div class="container">
 
     {% if error %}
@@ -494,11 +561,7 @@ min-height: 100px;
         <a href="/basket/">My Basket</a>
         <span>></span>
         Checkout
-    </nav>
-
-    <h1 class="checkout-header">View Order Summary & Proceed To Checkout</h1>
-
-    <a href="/basket/" class="btn-secondary" style="text-decoration: none;">← Return to modify basket...</a>
+    </nav>    
 
     <!-- Group added order items by producer -->
     <form method="POST" enctype="multipart/form-data" action="/orders/place/">
@@ -516,6 +579,10 @@ min-height: 100px;
                     <span>Postcode: {{ producer_group.producer_profile.postcode }}</span>
                 </div>
 
+                <div id="food-miles-{{ producer_group.producer_id }}" class="checkout-food-miles" style="display:none;">
+                    🌍 <span class="checkout-food-miles-value"></span>
+                </div>
+
                 {% if error %}
                 <div class="error-banner">{{ error }}</div>
                 {% endif %}
@@ -527,7 +594,7 @@ min-height: 100px;
 
                 <div class="form-group">
                     <label class="form-label">Collection Type <span class="required">*</span></label>
-                    <select name="collection_type_{{ producer_group.producer_id }}" class="form-select" required>
+                    <select id="collection_type_{{ producer_group.producer_id }}" name="collection_type_{{ producer_group.producer_id }}" class="form-select" required onchange="updateFoodMiles('{{ producer_group.producer_id }}', this.value); toggleDeliveryAddress('{{ producer_group.producer_id }}', this.value, '{{ request.session.role }}')">
                         <option value="">Select delivery or collect from producer</option>
                         <option value="Delivery">Deliver to my address</option>
                         <option value="Collection">Collect from producer</option>
@@ -538,6 +605,15 @@ min-height: 100px;
                     <label class="form-label">Delivery / Collection Date<span class="required">*</span></label>
                     <p>Note: a 48-hour lead time must be enforced on all orders to allow producers time to prepare.</p>
                     <input type="date" name="delivery_date_{{ producer_group.producer_id }}" class="form-input" min="{{ minimum_delivery_date }}" required>
+                </div>
+
+                <div id="delivery_instructions_{{ producer_group.producer_id }}" style="display:none;" class="form-group">
+                    <label class="form-label">Special Delivery Instructions (Optional)</label>
+                    <textarea 
+                        name="delivery_instructions_{{ producer_group.producer_id }}" 
+                        id="delivery_instructions_input_{{ producer_group.producer_id }}"
+                        class="form-textarea" 
+                        placeholder="Enter any special delivery instructions for the producer to see."></textarea>
                 </div>
 
             </div>
@@ -597,6 +673,54 @@ min-height: 100px;
                             <strong>£{{ basket.total_price }}</strong>
                         </div>
                     </div>
+
+                    <div class="checkout-total-miles" id="checkout-total-miles" style="display:none;">
+                        <span>🌍 Total food miles</span>
+                        <span>—</span>
+                    </div>
+
+                
+                    <div class="recurring-section">
+                        <label class="recurring-title">
+                            <input type="checkbox" id="make-recurring" name="make_recurring">
+                            Make this a recurring order
+                        </label>
+
+                        <div id="recurring-options" style="display:none; margin-top: 1.25rem;">
+                            <h4>Recurring Order Setup</h4>
+
+                            <div class="form-group">
+                                <label for="order_day">Place order every:</label>
+                                <select name="order_day" id="order_day" class="form-select">
+                                    <option value="0">Monday</option>
+                                    <option value="1">Tuesday</option>
+                                    <option value="2">Wednesday</option>
+                                    <option value="3">Thursday</option>
+                                    <option value="4">Friday</option>
+                                    <option value="5">Saturday</option>
+                                    <option value="6">Sunday</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="delivery_day">Deliver every:</label>
+                                <select name="delivery_day" id="delivery_day" class="form-select">
+                                    <option value="0">Monday</option>
+                                    <option value="1">Tuesday</option>
+                                    <option value="2" selected>Wednesday</option>
+                                    <option value="3">Thursday</option>
+                                    <option value="4">Friday</option>
+                                    <option value="5">Saturday</option>
+                                    <option value="6">Sunday</option>
+                                </select>
+                            </div>
+
+                            <p>
+                                Your order will be placed every <strong id="summary-order-day">Monday</strong>
+                                and delivered the following <strong id="summary-delivery-day">Wednesday</strong>.
+                            </p>
+                        </div>
+                    </div>
                     <button type="submit" class="btn-checkout">
                         Proceed to payment →
                     </button>
@@ -605,5 +729,143 @@ min-height: 100px;
         </div>
     </form>
 </div>
+
+<script>
+    var foodMilesData = {{ food_miles_by_producer|default:"{}"|safe }};
+
+    function updateFoodMiles(producerId, collectionType) {
+        var el = document.getElementById('food-miles-' + producerId);
+        var valueEl = el ? el.querySelector('.checkout-food-miles-value') : null;
+        if (!el || !valueEl) return;
+        if (!collectionType) {
+            el.style.display = 'none';
+        } else if (collectionType === 'Collection') {
+            el.style.display = 'inline-flex';
+            valueEl.textContent = '0 food miles (you\'re collecting)';
+        } else {
+            var miles = foodMilesData[producerId];
+            if (miles !== undefined && miles !== null) {
+                el.style.display = 'inline-flex';
+                valueEl.textContent = miles + ' food miles';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+        updateTotalMiles();
+    }
+
+    function updateTotalMiles() {
+        var selects = document.querySelectorAll('select[name^="collection_type_"]');
+        var total = 0;
+        var hasAny = false;
+        selects.forEach(function(sel) {
+            var producerId = sel.name.replace('collection_type_', '');
+            var val = sel.value;
+            if (!val) return;
+            hasAny = true;
+            if (val !== 'Collection') {
+                var miles = foodMilesData[producerId];
+                if (miles) total += miles;
+            }
+        });
+        var totalEl = document.getElementById('checkout-total-miles');
+        if (totalEl) {
+            totalEl.style.display = hasAny ? 'flex' : 'none';
+            totalEl.querySelector('span:last-child').textContent = total.toFixed(1) + ' miles';
+        }
+    }
+
+    function toggleDeliveryAddress(producerId, value, role) {
+        if(role !== "COMMUNITY-GROUP-REPRESENTATIVE"){
+            return;
+        }
+        const instructionsDiv = document.getElementById('delivery_instructions_' + producerId);
+        const instructionsInput = document.getElementById('delivery_instructions_input_' + producerId);
+        
+        if (value === 'Delivery') {
+            instructionsDiv.style.display = 'block';
+            instructionsInput.required = true;
+        } else {
+            instructionsDiv.style.display = 'none';
+            instructionsInput.required = false;
+            instructionsInput.value = '';
+        }
+    }
+
+    // Check if order is set to be recurring or not and change recurrance summary dynamically.
+    const checkbox = document.getElementById('make-recurring');
+    const options = document.getElementById('recurring-options');
+    const orderDaySelect = document.getElementById('order_day');
+    const deliveryDaySelect = document.getElementById('delivery_day');
+    const summaryOrderDay = document.getElementById('summary-order-day');
+    const summaryDeliveryDay = document.getElementById('summary-delivery-day');
+
+    // Track original values to revert on invalid selection
+    let lastValidOrderDay = orderDaySelect.value;
+    let lastValidDeliveryDay = deliveryDaySelect.value;
+
+    checkbox.addEventListener('change', () => {
+        options.style.display = checkbox.checked ? 'block' : 'none';
+    });
+
+    function isValid(orderDay, deliveryDay) {
+        const diff = (deliveryDay - orderDay + 7) % 7;
+        return diff !== 1;
+    }
+
+    function showFieldError(fieldId, message) {
+        const field = document.getElementById(fieldId);
+        field.style.borderColor = '#a20000';
+        let hint = field.nextElementSibling;
+        if (!hint || !hint.classList.contains('field-error')) {
+            hint = document.createElement('p');
+            hint.className = 'hint field-error';
+            hint.style.color = '#a20000';
+            hint.style.fontSize = '14px';
+            hint.style.margin = '-0.25rem';
+            field.parentNode.insertBefore(hint, field.nextSibling);
+        }
+        hint.textContent = message;
+    }
+
+    function clearFieldErrors() {
+        document.querySelectorAll('.field-error').forEach(el => el.remove());
+        document.querySelectorAll('.form-input').forEach(el => el.style.borderColor = '');
+    }
+
+    orderDaySelect.addEventListener('click', () => {
+        clearFieldErrors();
+        const orderDay = parseInt(orderDaySelect.value);
+        const deliveryDay = parseInt(deliveryDaySelect.value);
+
+        if (!isValid(orderDay, deliveryDay)) {
+            // Revert to last valid value without triggering change event
+            orderDaySelect.value = lastValidOrderDay;
+            showFieldError('order_day', 'This order day conflicts with your delivery day. A 48-hour lead time must be maintained.');
+            return;
+        }
+
+        lastValidOrderDay = orderDaySelect.value;
+        
+        summaryOrderDay.textContent = orderDaySelect.options[orderDaySelect.selectedIndex].text;
+    });
+
+    deliveryDaySelect.addEventListener('click', () => {
+        clearFieldErrors();
+        const orderDay = parseInt(orderDaySelect.value);
+        const deliveryDay = parseInt(deliveryDaySelect.value);
+
+        if (!isValid(orderDay, deliveryDay)) {
+            // Revert to last valid value without triggering change event
+            deliveryDaySelect.value = lastValidDeliveryDay;
+            showFieldError('delivery_day', 'Cannot deliver the next day - not enough preparation time.');
+            return;
+        }
+
+        lastValidDeliveryDay = deliveryDaySelect.value;
+        
+        summaryDeliveryDay.textContent = deliveryDaySelect.options[deliveryDaySelect.selectedIndex].text;
+    });
+</script>
 
 {% endblock %}

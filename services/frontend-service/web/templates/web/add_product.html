@@ -239,6 +239,11 @@ color: var(--green);
                 <input type="number" name="stock_quantity" class="form-input" placeholder="50" min="0" required>
             </div>
 
+            <div class="form-group">
+                <label class="form-label">Low Stock Alert Threshold</label>
+                <input type="number" name="low_stock_threshold" class="form-input" placeholder="10" min="0" value="10">
+            </div>
+
             <div class="form-group full-width">
                 <label class="form-label">Description</label>
                 <textarea name="description" class="form-textarea" placeholder="Describe your product..."></textarea>
@@ -277,9 +282,63 @@ color: var(--green);
                 <label for="is_organic">Certified Organic Product</label>
             </div>
 
-            <div class="form-group full-width checkbox-group">
-                <input type="checkbox" name="is_available" id="is_available" value="true" checked>
-                <label for="is_available">In Season / Available for Purchase</label>
+            <div class="form-group full-width" style="border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1rem;">
+                <label class="form-label" style="font-size: 1rem; color: var(--green);">Availability Status</label>
+                <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem; margin-bottom: 1rem;">
+                    <label class="checkbox-group" style="margin:0;">
+                        <input type="radio" name="availability_status" value="ALWAYS" checked onchange="toggleSeasonalFields()">
+                        <span>Always Available</span>
+                    </label>
+                    <label class="checkbox-group" style="margin:0;">
+                        <input type="radio" name="availability_status" value="IN_SEASON" onchange="toggleSeasonalFields()">
+                        <span>In Season</span>
+                    </label>
+                    <label class="checkbox-group" style="margin:0;">
+                        <input type="radio" name="availability_status" value="OUT_OF_STOCK" onchange="toggleSeasonalFields()">
+                        <span>Out of Stock</span>
+                    </label>
+                </div>
+                
+                <div id="seasonal_fields" style="display: none; border-left: 3px solid var(--green); padding-left: 1rem;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Seasonal Start Month <span class="required">*</span></label>
+                            <select name="seasonal_start_month" id="seasonal_start_month" class="form-select">
+                                <option value="">Select Month</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Seasonal End Month <span class="required">*</span></label>
+                            <select name="seasonal_end_month" id="seasonal_end_month" class="form-select">
+                                <option value="">Select Month</option>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Surplus Deals Section -->
@@ -327,13 +386,33 @@ color: var(--green);
                         expiryInput.value = '';
                     }
                 }
+                
+                function toggleSeasonalFields() {
+                    const status = document.querySelector('input[name="availability_status"]:checked').value;
+                    const seasonalFields = document.getElementById('seasonal_fields');
+                    const startInput = document.getElementById('seasonal_start_month');
+                    const endInput = document.getElementById('seasonal_end_month');
+                    
+                    if (status === 'IN_SEASON') {
+                        seasonalFields.style.display = 'block';
+                        startInput.required = true;
+                        endInput.required = true;
+                    } else {
+                        seasonalFields.style.display = 'none';
+                        startInput.required = false;
+                        endInput.required = false;
+                    }
+                }
+                
+                document.addEventListener('DOMContentLoaded', () => {
+                    toggleSeasonalFields();
+                });
             </script>
 
             <div class="form-group full-width">
-                <label class="form-label" style="color: var(--text-muted)">Product Image (Coming Soon)</label>
-                <input type="file" name="image" class="file-input" accept="image/*" disabled
-                    style="opacity: 0.5; cursor: not-allowed;">
-                <span class="form-help">Image uploading is temporarily disabled.</span>
+                <label class="form-label" for="image">Product Image</label>
+                <input type="file" id="image" name="image" class="file-input" accept="image/*">
+                <span class="form-help">Upload a high-quality image of your product.</span>
             </div>
 
             <button type="submit" class="btn-primary">List Product</button>

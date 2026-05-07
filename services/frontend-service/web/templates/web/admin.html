@@ -53,6 +53,120 @@
     border-bottom: 2px solid var(--border);
     margin-bottom: 2rem;
 }
+
+/* ── DATE FILTER BAR ── */
+.date-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--green-light);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border: 1px solid #b8dfc8;
+}
+.date-filter-presets {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.date-preset-btn {
+    padding: 0.35rem 0.85rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--green);
+    border: 1.5px solid var(--green);
+    background: transparent;
+    transition: all 0.2s;
+}
+.date-preset-btn:hover,
+.date-preset-btn.active { background: var(--green); color: #fff; }
+.date-filter-custom {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.date-filter-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.date-filter-input {
+    padding: 0.35rem 0.6rem;
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    background: #fff;
+}
+.date-filter-submit {
+    padding: 0.35rem 1rem;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.date-filter-submit:hover { background: var(--green-mid); }
+
+/* ── COMMISSION SUMMARY ── */
+.commission-summary {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    max-width: 500px;
+}
+.commission-summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+}
+.commission-summary-row:last-child { border-bottom: none; }
+.commission-highlight { color: var(--green); font-weight: 700; }
+
+.commission-period-summary {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1rem 0 1.5rem;
+}
+.period-stat {
+    flex: 1;
+    min-width: 140px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+}
+.period-stat-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+.period-stat-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.commission-period-summary .commission-highlight .period-stat-value {
+    color: var(--green);
+}
+
+.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sort-icon { font-size: 0.7rem; opacity: 0.5; margin-left: 3px; }
 .tab-btn {
     background: none;
     border: none;
@@ -115,6 +229,7 @@
 }
 .role-customer { background: #e8f5ee; color: #00622e; }
 .role-producer { background: #fdf1ea; color: #c85a1e; }
+.role-community-group-representative { background: #ffd480; color: #b37700; }
 .role-admin    { background: #e8eaf6; color: #3949ab; }
 
 .status-badge {
@@ -129,6 +244,68 @@
 .status-confirmed { background: #e8f5ee; color: #00622e; }
 .status-ready     { background: #e3f2fd; color: #1565c0; }
 .status-delivered { background: #f3e5f5; color: #6a1b9a; }
+
+.status-payment-paid              { background: #e8f5ee; color: #00622e; }
+.status-payment-unpaid            { background: #fdf3dc; color: #9a6b10; }
+.status-payment-no_payment_required { background: #e3f2fd; color: #1565c0; }
+.status-payment-refunded          { background: #eef2ff; color: #3049a5; }
+
+.copy-btn {
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.75rem;
+    color: var(--green);
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--green);
+    background: transparent;
+    transition: background 0.2s, color 0.2s;
+}
+.copy-btn:hover { background: var(--green); color: #fff; }
+.copy-btn.copied { background: var(--green); color: #fff; }
+
+.session-id-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.session-id-chip {
+    display: inline-block;
+    max-width: 420px;
+    padding: 0.26rem 0.5rem;
+    border: 1px solid #c9d9ce;
+    border-radius: 6px;
+    background: #f6faf7;
+    color: var(--text);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.session-id-chip:hover {
+    border-color: #9fbba9;
+    background: #eef7f1;
+}
+
+@media (max-width: 1100px) {
+    .session-id-chip { max-width: 260px; }
+}
+
+@media (max-width: 720px) {
+    .session-id-cell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+
+    .session-id-chip { max-width: 220px; }
+}
 
 .btn-sm-danger {
     background: transparent;
@@ -403,6 +580,49 @@
     transition: border-color 0.2s;
 }
 .search-input:focus { border-color: var(--green); background: #fff; }
+
+/* Secondary / outline button */
+.action-buttons {
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.action-buttons h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.divider {
+    color: #ccc;
+    font-weight: 400;
+}
+
+.action-buttons form {
+    display: inline-flex;
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--green);
+    border: 1.5px solid var(--green);
+    padding: 0.7rem 1.5rem;
+    border-radius: var(--radius);
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-secondary:hover {
+    background: var(--green);
+    color: #fff;
+}
 {% endblock %}
 
 {% block content %}
@@ -439,15 +659,23 @@
         </div>
         <div class="stat-card">
             <div class="stat-label">Orders</div>
-            <div class="stat-value">{{ orders|length }}</div>
+            <div class="stat-value">{{ all_orders|length }}</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">Total Revenue</div>
             <div class="stat-value">£{{ total_revenue|floatformat:2 }}</div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">Commission</div>
+            <div class="stat-label">Commission (5%)</div>
             <div class="stat-value">£{{ total_commission|floatformat:2 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Producer Payouts</div>
+            <div class="stat-value">£{{ total_producer_payout|floatformat:2 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Food Miles</div>
+            <div class="stat-value">{{ total_food_miles }} mi</div>
         </div>
     </div>
 
@@ -456,6 +684,11 @@
         <button class="tab-btn active" onclick="switchTab('users', this)">Users</button>
         <button class="tab-btn" onclick="switchTab('products', this)">Products</button>
         <button class="tab-btn" onclick="switchTab('orders', this)">Orders</button>
+        <button class="tab-btn" onclick="switchTab('transactions', this)">Transactions</button>
+        <button class="tab-btn" onclick="switchTab('commission', this)">Commission</button>
+        <button class="tab-btn" onclick="switchTab('foodmiles', this)">Food Miles</button>
+        <button class="tab-btn" onclick="switchTab('settlements', this)">Settlements{% if unsettled_count %} <span style="background:#e8f5ee;color:#00622e;border-radius:10px;padding:1px 7px;font-size:0.72rem;">{{ unsettled_count }} pending</span>{% endif %}</button>
+        <button class="tab-btn" onclick="switchTab('notifications', this)">Notifications</button>
     </div>
 
     <!-- Users Tab -->
@@ -485,7 +718,26 @@
                     </td>
                     <td>{{ user.phone_number|default:"—" }}</td>
                     <td>
-                        <script type="application/json" id="user-data-{{ user.id }}">{"id": {{ user.id }}, "username": "{{ user.username|escapejs }}", "email": "{{ user.email|default:''|escapejs }}", "phone": "{{ user.phone_number|default:''|escapejs }}", "role": "{{ user.role }}", "firstName": "{{ user.customer_profile.first_name|default:''|escapejs }}", "lastName": "{{ user.customer_profile.last_name|default:''|escapejs }}", "deliveryAddress": "{{ user.customer_profile.delivery_address|default:''|escapejs }}", "customerPostcode": "{{ user.customer_profile.postcode|default:''|escapejs }}", "businessName": "{{ user.producer_profile.business_name|default:''|escapejs }}", "businessAddress": "{{ user.producer_profile.business_address|default:''|escapejs }}", "producerPostcode": "{{ user.producer_profile.postcode|default:''|escapejs }}", "bio": "{{ user.producer_profile.bio|default:''|escapejs }}"}</script>
+                        <script type="application/json" id="user-data-{{ user.id }}">
+                            {"id": {{ user.id }},
+                            "username": "{{ user.username|escapejs }}",
+                            "email": "{{ user.email|default:''|escapejs }}",
+                            "phone": "{{ user.phone_number|default:''|escapejs }}",
+                            "role": "{{ user.role }}",
+                            "firstName": "{{ user.customer_profile.first_name|default:''|escapejs }}",
+                            "lastName": "{{ user.customer_profile.last_name|default:''|escapejs }}",
+                            "organizationName": "{{ user.community_profile.organization_name|default:''|escapejs }}",
+                            "organizationType": "{{ user.community_profile.organization_type|default:''|escapejs }}",
+                            "communityDeliveryAddress": "{{ user.community_profile.delivery_address|default:''|escapejs }}",
+                            "customerDeliveryAddress": "{{ user.customer_profile.delivery_address|default:''|escapejs }}",
+                            "communityPostcode": "{{ user.community_profile.postcode|default:'' }}",
+                            "customerPostcode": "{{ user.customer_profile.postcode|default:''|escapejs }}",
+                            "businessName": "{{ user.producer_profile.business_name|default:''|escapejs }}",
+                            "businessAddress": "{{ user.producer_profile.business_address|default:''|escapejs }}",
+                            "producerPostcode": "{{ user.producer_profile.postcode|default:''|escapejs }}",
+                            "bio": "{{ user.producer_profile.bio|default:''|escapejs }}",
+                            "stripeAccountId": "{{ user.producer_profile.stripe_account_id|default:''|escapejs }}"}
+                        </script>
                         <button class="btn-sm-edit" onclick="openEditModalFromBtn({{ user.id }})">Edit</button>
                         {% if user.role != 'ADMIN' %}
                         <button type="button" class="btn-sm-danger" onclick="showConfirmModal('Delete User', 'Delete user {{ user.username }}? This cannot be undone.', '/admin-dashboard/users/{{ user.id }}/delete/')">Delete</button>
@@ -548,41 +800,528 @@
 
     <!-- Orders Tab -->
     <div id="tab-orders" class="tab-panel">
-        <div class="search-bar">
-            <input class="search-input" type="text" placeholder="Search orders by ID or status…" oninput="filterTable('orders-table', this.value)">
+        <div class="action-buttons">
+            <div>
+                <h3>MANAGEMENT</h3>
+            </div>
+            <div class="divider">|</div>
+            <div>
+                <form method="POST" action="/orders/recurring/order-date-update/" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-secondary">🕑 Set Active Recurring Orders Reorder Dates To Today</button>
+                </form>
+            </div>
+            <div class="divider">|</div>
+            <div>
+                <form method="POST" action="/orders/recurring/trigger/" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-secondary">⚡ Process Recurring Orders Now</button>
+                </form>
+            </div>
+        </div>
+        <div class="search-bar" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+            <input class="search-input" style="flex:1;min-width:200px;" type="text" id="orders-search" placeholder="Search orders by ID, customer or status…" oninput="filterOrders()">
+            <input type="date" class="date-filter-input" id="orders-date-from" onchange="filterOrders()" placeholder="From">
+            <input type="date" class="date-filter-input" id="orders-date-to" onchange="filterOrders()" placeholder="To">
+            <div class="date-filter-presets" style="display:flex;gap:0.4rem;">
+                <button type="button" class="date-preset-btn" onclick="setOrdersPreset('all')">All</button>
+                <button type="button" class="date-preset-btn" onclick="setOrdersPreset('today')">Today</button>
+                <button type="button" class="date-preset-btn" onclick="setOrdersPreset('week')">7 Days</button>
+                <button type="button" class="date-preset-btn" onclick="setOrdersPreset('month')">30 Days</button>
+            </div>
         </div>
         <table class="data-table" id="orders-table">
             <thead>
                 <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Total</th>
-                    <th>Commission</th>
-                    <th>Status</th>
-                    <th>Delivery Date</th>
-                    <th>Placed</th>
+                    <th onclick="sortTable('orders-table', 0)" class="sortable">Order ID <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('orders-table', 1)" class="sortable">Customer <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('orders-table', 2)" class="sortable">Producer <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('orders-table', 3)" class="sortable">Total <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('orders-table', 4)" class="sortable">Commission <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('orders-table', 5)" class="sortable">Food Miles <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('orders-table', 6)" class="sortable">Status <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('orders-table', 7)" class="sortable">Placed <span class="sort-icon">↕</span></th>
                 </tr>
             </thead>
             <tbody>
-                {% for order in orders %}
-                <tr>
+                {% for order in all_orders %}
+                <tr data-date="{{ order.created_at|slice:':10' }}">
                     <td><strong>#{{ order.id }}</strong></td>
-                    <td>{{ order.customer }}</td>
+                    <td>{{ order.customer_username|default:order.customer }}</td>
+                    <td>{{ order.producer_name|default:"—" }}</td>
                     <td>£{{ order.total_amount }}</td>
                     <td>£{{ order.commission_total|default:"0.00" }}</td>
                     <td>
+                        {% if order.food_miles %}
+                        <span style="color:var(--green);font-weight:600;font-size:0.85rem;">🌍 {{ order.food_miles }} mi</span>
+                        {% else %}
+                        <span style="color:var(--text-muted);font-size:0.8rem;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         <span class="status-badge status-{{ order.status|lower }}">{{ order.status }}</span>
                     </td>
-                    <td>{{ order.delivery_date|default:"—" }}</td>
                     <td>{{ order.created_at|slice:":10" }}</td>
                 </tr>
                 {% empty %}
-                <tr class="empty-row"><td colspan="7">No orders found.</td></tr>
+                <tr class="empty-row"><td colspan="8">No orders found.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
+    <!-- Commission Tab -->
+    <div id="tab-commission" class="tab-panel">
+        <div class="search-bar" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+            <input class="search-input" style="flex:1;min-width:200px;" type="text" id="commission-search" placeholder="Search by producer…" oninput="filterCommissionTable()">
+            <select class="date-filter-input" id="commission-status" onchange="filterCommission()" style="padding:0.35rem 0.6rem;">
+                <option value="">All Statuses</option>
+                <option value="PENDING">Pending</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="READY">Ready</option>
+                <option value="DELIVERED">Delivered</option>
+            </select>
+            <input type="date" class="date-filter-input" id="commission-date-from" onchange="filterCommission()">
+            <input type="date" class="date-filter-input" id="commission-date-to" onchange="filterCommission()">
+            <div class="date-filter-presets" style="display:flex;gap:0.4rem;">
+                <button type="button" class="date-preset-btn active" onclick="setCommissionPreset('all')">All</button>
+                <button type="button" class="date-preset-btn" onclick="setCommissionPreset('ytd')">YTD</button>
+                <button type="button" class="date-preset-btn" onclick="setCommissionPreset('month')">This Month</button>
+                <button type="button" class="date-preset-btn" onclick="setCommissionPreset('week')">7 Days</button>
+                <button type="button" class="date-preset-btn" onclick="setCommissionPreset('today')">Today</button>
+            </div>
+            <button type="button" class="date-filter-submit" onclick="exportCommissionCSV()" style="white-space:nowrap;">⬇ Export CSV</button>
+        </div>
+
+        <!-- Period Summary -->
+        <div class="commission-period-summary" id="commission-period-summary">
+            <div class="period-stat">
+                <div class="period-stat-label">Orders in Period</div>
+                <div class="period-stat-value" id="period-orders">—</div>
+            </div>
+            <div class="period-stat">
+                <div class="period-stat-label">Total Revenue</div>
+                <div class="period-stat-value" id="period-revenue">—</div>
+            </div>
+            <div class="period-stat commission-highlight">
+                <div class="period-stat-label">Commission (5%)</div>
+                <div class="period-stat-value" id="period-commission">—</div>
+            </div>
+            <div class="period-stat">
+                <div class="period-stat-label">Producer Payouts (95%)</div>
+                <div class="period-stat-value" id="period-payout">—</div>
+            </div>
+        </div>
+
+        <!-- Monthly Summary -->
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin:1.5rem 0 0.75rem;">Monthly Summary</h3>
+        <table class="data-table" id="monthly-table" style="margin-bottom:2rem;">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Orders</th>
+                    <th>Total Revenue</th>
+                    <th>Commission (5%)</th>
+                    <th>Producer Payouts</th>
+                </tr>
+            </thead>
+            <tbody id="monthly-tbody">
+                <tr class="empty-row"><td colspan="5">Loading…</td></tr>
+            </tbody>
+        </table>
+
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin:1.5rem 0 0.75rem;">Per-Producer Breakdown</h3>
+        <table class="data-table" id="commission-table">
+            <thead>
+                <tr>
+                    <th onclick="sortTable('commission-table', 0)" class="sortable">Producer <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('commission-table', 1)" class="sortable">Orders <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('commission-table', 2)" class="sortable">Total Revenue <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('commission-table', 3)" class="sortable">Commission (5%) <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('commission-table', 4)" class="sortable">Producer Payout <span class="sort-icon">↕</span></th>
+                </tr>
+            </thead>
+            <tbody id="commission-tbody">
+                {% for row in producer_breakdown %}
+                <tr>
+                    <td><strong>{{ row.producer }}</strong></td>
+                    <td>{{ row.order_count }}</td>
+                    <td>£{{ row.total_revenue|floatformat:2 }}</td>
+                    <td>£{{ row.total_commission|floatformat:2 }}</td>
+                    <td>£{{ row.total_payout|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="5">No commission data found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Food Miles Tab -->
+    <div id="tab-foodmiles" class="tab-panel">
+        <div class="commission-period-summary" style="margin-bottom:1.5rem;">
+            <div class="period-stat commission-highlight">
+                <div class="period-stat-label">Platform Total Food Miles</div>
+                <div class="period-stat-value">{{ total_food_miles }} mi</div>
+            </div>
+            <div class="period-stat">
+                <div class="period-stat-label">Delivered Orders Only</div>
+                <div class="period-stat-value">{{ producer_food_miles|length }} producer{{ producer_food_miles|length|pluralize }}</div>
+            </div>
+        </div>
+
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin:0 0 0.75rem;">Food Miles by Producer</h3>
+        <table class="data-table" id="foodmiles-table">
+            <thead>
+                <tr>
+                    <th onclick="sortTable('foodmiles-table', 0)" class="sortable">Producer <span class="sort-icon">↕</span></th>
+                    <th onclick="sortTable('foodmiles-table', 1)" class="sortable">Total Miles <span class="sort-icon">↕</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in producer_food_miles %}
+                <tr>
+                    <td><strong>{{ row.producer }}</strong></td>
+                    <td>{{ row.miles }} mi</td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="2">No delivered delivery orders yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Transactions Tab -->
+    <div id="tab-transactions" class="tab-panel">
+        {% if transaction_error %}
+        <div class="error-banner" style="margin-bottom: 1rem;">{{ transaction_error }}</div>
+        {% endif %}
+        {% if transaction_debug %}
+        <div style="margin-bottom: 1rem; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: #f7faf8; color: var(--text-muted); font-size: 0.82rem;">
+            <strong style="color: var(--text);">Transaction debug details:</strong>
+            <ul style="margin: 0.5rem 0 0 1rem;">
+                {% for entry in transaction_debug %}
+                <li>{{ entry }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <div class="search-bar">
+            <input class="search-input" type="text" placeholder="Search transactions by session ID, order ID or user ID..." oninput="filterTable('transactions-table', this.value)">
+        </div>
+        <table class="data-table" id="transactions-table">
+            <thead>
+                <tr>
+                    <th style="cursor:pointer;" onclick="sortTableByCol('transactions-table', 0)">Session ID ↕</th>
+                    <th>Order ID</th>
+                    <th>User ID</th>
+                    <th>Amount</th>
+                    <th>Payment Status</th>
+                    <th style="cursor:pointer;" onclick="sortTableByCol('transactions-table', 5)">Created ↕</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>
+                        <div class="session-id-cell">
+                            <span class="session-id-chip" title="{{ transaction.session_id }}">{{ transaction.session_id }}</span>
+                            <button class="copy-btn" onclick="copyToClipboard('{{ transaction.session_id }}', this)">Copy</button>
+                        </div>
+                    </td>
+                    <td>{{ transaction.order_id|default:"—" }}</td>
+                    <td>{{ transaction.user_id|default:"—" }}</td>
+                    <td>{{ transaction.amount_total }} {{ transaction.currency }}</td>
+                    <td>
+                        <span class="status-badge status-payment-{{ transaction.display_status|lower }}">{{ transaction.display_status }}</span>
+                    </td>
+                    <td>{{ transaction.created_at }}</td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="6">No transactions found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Settlements Tab -->
+    <div id="tab-settlements" class="tab-panel">
+        {% if settlement_message %}
+        <div style="margin-bottom:1rem;padding:0.85rem 1rem;border:1px solid #b8dfc8;border-radius:8px;background:#eef7f1;color:#00622e;font-weight:600;">
+            {{ settlement_message }}
+        </div>
+        {% endif %}
+        {% if settlement_error %}
+        <div class="error-banner" style="margin-bottom:1rem;">{{ settlement_error }}</div>
+        {% endif %}
+
+        <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+            <div>
+                <div class="stat-label">Outstanding Paid Transactions</div>
+                <div class="stat-value" style="font-size:1.5rem;">{{ unsettled_count }}</div>
+            </div>
+            <form method="POST" action="/admin-dashboard/settlements/run/" style="margin-left:auto;">
+                {% csrf_token %}
+                <button type="submit" class="date-filter-submit" style="padding:0.6rem 1.4rem;font-size:0.9rem;"
+                    {% if not unsettled_count %}disabled title="No outstanding payments to settle"{% endif %}>
+                    Run Weekly Settlement
+                </button>
+            </form>
+        </div>
+
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1.5rem;">
+            In a production system this would run automatically each week via a scheduled task. The button below lets you trigger it manually for testing — it compiles all outstanding paid transactions since the last settlement, calculates 95% producer payouts (deducting 5% platform commission), records the breakdown per producer, and (if a Stripe connected account ID is set on the producer) initiates a live Stripe Transfer. Producers without a Stripe account ID will show as <strong>SKIPPED</strong>.
+        </p>
+
+        {% if settlements %}
+        <table class="data-table" id="settlements-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date Run</th>
+                    <th>Period</th>
+                    <th>Total Payout</th>
+                    <th>Producers</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in settlements %}
+                <tr style="cursor:pointer;" onclick="toggleSettlementDetail('detail-{{ s.id }}')" title="Click to expand producer breakdown">
+                    <td><strong>#{{ s.id }}</strong></td>
+                    <td>{{ s.created_at|slice:":10" }}</td>
+                    <td style="font-size:0.82rem;">{{ s.week_start }} → {{ s.week_end }}</td>
+                    <td>£{{ s.total_amount }}</td>
+                    <td>{{ s.producers|length }}</td>
+                    <td>
+                        {% if s.status == 'COMPLETED' %}
+                        <span class="status-badge status-confirmed">COMPLETED</span>
+                        {% elif s.status == 'FAILED' %}
+                        <span class="status-badge" style="background:#fde8e8;color:#a0422a;">FAILED</span>
+                        {% else %}
+                        <span class="status-badge status-pending">{{ s.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr id="detail-{{ s.id }}" style="display:none;">
+                    <td colspan="6" style="padding:0;">
+                        <table style="width:100%;border-collapse:collapse;background:#f9fcfa;">
+                            <thead>
+                                <tr style="background:#e8f0ec;">
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Producer</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Payout</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Transfer Status</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Transfer ID</th>
+                                    <th style="padding:0.5rem 1rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;text-align:left;color:#3a5a45;">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ps in s.producers %}
+                                <tr style="border-top:1px solid #d4e8db;">
+                                    <td style="padding:0.5rem 1rem;">{{ ps.producer_name }}</td>
+                                    <td style="padding:0.5rem 1rem;">£{{ ps.amount }}</td>
+                                    <td style="padding:0.5rem 1rem;">
+                                        {% if ps.status == 'TRANSFERRED' %}
+                                        <span class="status-badge status-confirmed">TRANSFERRED</span>
+                                        {% elif ps.status == 'SKIPPED' %}
+                                        <span class="status-badge status-ready">SKIPPED</span>
+                                        {% elif ps.status == 'FAILED' %}
+                                        <span class="status-badge" style="background:#fde8e8;color:#a0422a;">FAILED</span>
+                                        {% else %}
+                                        <span class="status-badge status-pending">{{ ps.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding:0.5rem 1rem;font-family:monospace;font-size:0.76rem;">{{ ps.transfer_id|default:"—" }}</td>
+                                    <td style="padding:0.5rem 1rem;font-size:0.8rem;color:var(--text-muted);">{{ ps.error_message|default:"" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" style="padding:0.5rem 1rem;color:var(--text-muted);">No producer details recorded.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr class="empty-row"><td colspan="6">No settlements have been run yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="color:var(--text-muted);padding:2rem 0;">No settlements have been run yet. Use the button above once paid transactions are available.</div>
+        {% endif %}
+    </div>
+
+    <!-- Notifications Tab -->
+    <div id="tab-notifications" class="tab-panel">
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.25rem;">
+            <button id="notif-subtab-notifs" onclick="switchNotifSubtab('notifs')" style="padding:0.5rem 1.2rem;font-size:0.83rem;font-weight:700;border:none;border-bottom:2px solid var(--green);background:none;color:var(--green);cursor:pointer;">In-App &amp; Email</button>
+            <button id="notif-subtab-emails" onclick="switchNotifSubtab('emails')" style="padding:0.5rem 1.2rem;font-size:0.83rem;font-weight:700;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);cursor:pointer;">Email Log</button>
+        </div>
+
+        <!-- Sub-panel: notifications -->
+        <div id="notif-subpanel-notifs">
+        <div class="date-filter-bar" style="flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TYPE</label>
+                <select id="notif-filter-type" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All types</option>
+                    <option value="ORDER_PLACED">Order Placed</option>
+                    <option value="ORDER_CONFIRMED">Order Confirmed</option>
+                    <option value="ORDER_READY">Order Ready</option>
+                    <option value="ORDER_DELIVERED">Order Delivered</option>
+                    <option value="ORDER_CANCELLED">Order Cancelled</option>
+                    <option value="PAYMENT_RECEIVED">Payment Received</option>
+                    <option value="PAYMENT_FAILED">Payment Failed</option>
+                    <option value="ORDER_SUMMARY">Order Summary</option>
+                    <option value="LOW_STOCK">Low Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
+                    <option value="SURPLUS_DEAL">Surplus Deal</option>
+                    <option value="SEASONAL_REMINDER">Seasonal Reminder</option>
+                    <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
+                    <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
+                    <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                    <option value="BULK_ORDER_PLACED">Bulk Order Placed</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">RECIPIENT</label>
+                <select id="notif-filter-role" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All recipients</option>
+                    <option value="customer">Customer</option>
+                    <option value="producer">Producer</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">EMAIL SENT</label>
+                <select id="notif-filter-email" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All</option>
+                    <option value="true">Email sent</option>
+                    <option value="false">No email</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">USER ID</label>
+                <input id="notif-filter-user" type="number" placeholder="Recipient ID" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;width:110px;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">FROM</label>
+                <input id="notif-filter-from" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TO</label>
+                <input id="notif-filter-to" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <button onclick="loadNotifications()" style="padding:0.4rem 1rem;background:var(--green);color:#fff;border:none;border-radius:5px;font-size:0.82rem;font-weight:700;cursor:pointer;">Apply</button>
+            <button onclick="clearNotifFilters()" style="padding:0.4rem 0.8rem;background:none;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;cursor:pointer;color:var(--text-muted);">Clear</button>
+            <span id="notif-count-label" style="margin-left:auto;font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+
+        <div id="notif-admin-loading" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.9rem;">Select filters and click Apply, or load all.</div>
+        <div id="notif-admin-table-wrap" style="display:none;overflow-x:auto;">
+            <table class="data-table" id="notif-admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Recipient</th>
+                        <th>Type</th>
+                        <th>Title</th>
+                        <th>In-App</th>
+                        <th>Email Sent</th>
+                        <th>Read</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="notif-admin-tbody"></tbody>
+            </table>
+        </div>
+        </div>
+
+        <!-- Sub-panel: email logs -->
+        <div id="notif-subpanel-emails" style="display:none;">
+        <div class="date-filter-bar" style="flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TYPE</label>
+                <select id="email-filter-type" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All types</option>
+                    <option value="ORDER_PLACED">Order Placed</option>
+                    <option value="ORDER_CONFIRMED">Order Confirmed</option>
+                    <option value="ORDER_READY">Order Ready</option>
+                    <option value="ORDER_DELIVERED">Order Delivered</option>
+                    <option value="ORDER_CANCELLED">Order Cancelled</option>
+                    <option value="PAYMENT_RECEIVED">Payment Received</option>
+                    <option value="PAYMENT_FAILED">Payment Failed</option>
+                    <option value="ORDER_SUMMARY">Order Summary</option>
+                    <option value="LOW_STOCK">Low Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
+                    <option value="SURPLUS_DEAL">Surplus Deal</option>
+                    <option value="SEASONAL_REMINDER">Seasonal Reminder</option>
+                    <option value="RECURRING_ORDER_PLACED">Recurring Order Placed</option>
+                    <option value="RECURRING_ORDER_PAUSED">Recurring Order Paused</option>
+                    <option value="RECURRING_ORDER_REMINDER">Recurring Order Reminder</option>
+                    <option value="BULK_ORDER_PLACED">Bulk Order Placed</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">STATUS</label>
+                <select id="email-filter-status" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+                    <option value="">All</option>
+                    <option value="SENT">Sent</option>
+                    <option value="FAILED">Failed</option>
+                </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">RECIPIENT EMAIL</label>
+                <input id="email-filter-recipient" type="text" placeholder="e.g. user@example.com" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;width:170px;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">FROM</label>
+                <input id="email-filter-from" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                <label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);">TO</label>
+                <input id="email-filter-to" type="date" style="padding:0.35rem 0.6rem;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;background:var(--bg);">
+            </div>
+            <button onclick="loadEmailLogs()" style="padding:0.4rem 1rem;background:var(--green);color:#fff;border:none;border-radius:5px;font-size:0.82rem;font-weight:700;cursor:pointer;">Apply</button>
+            <button onclick="clearEmailFilters()" style="padding:0.4rem 0.8rem;background:none;border:1px solid var(--border);border-radius:5px;font-size:0.82rem;cursor:pointer;color:var(--text-muted);">Clear</button>
+            <span id="email-count-label" style="margin-left:auto;font-size:0.8rem;color:var(--text-muted);"></span>
+        </div>
+
+        <div id="email-log-loading" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.9rem;">Select filters and click Apply, or load all.</div>
+        <div id="email-log-table-wrap" style="display:none;overflow-x:auto;">
+            <table class="data-table" id="email-log-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Recipient</th>
+                        <th>Subject</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Sent At</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="email-log-tbody"></tbody>
+            </table>
+        </div>
+        </div>
+    </div>
+
+<!-- View Email Modal -->
+<div class="modal-overlay" id="email-preview-modal" style="display:none;align-items:center;justify-content:center;z-index:1000;">
+    <div style="background:var(--bg);border-radius:10px;width:680px;max-width:96vw;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem;border-bottom:1px solid var(--border);">
+            <div>
+                <div style="font-weight:700;font-size:0.95rem;" id="email-preview-subject"></div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;" id="email-preview-meta"></div>
+            </div>
+            <button onclick="closeEmailPreview()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-muted);line-height:1;">&times;</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:1.5rem;">
+            <iframe id="email-preview-frame" style="width:100%;border:none;min-height:420px;"></iframe>
+        </div>
+    </div>
+</div>
 </div>
 <br><br>
 
@@ -611,6 +1350,7 @@
                 <select class="form-select" id="edit-role" name="role" onchange="toggleModalProfileFields(this.value)">
                     <option value="CUSTOMER">Customer</option>
                     <option value="PRODUCER">Producer</option>
+                    <option value="COMMUNITY-GROUP-REPRESENTATIVE">Community Group Representative</option>
                     <option value="ADMIN">Admin</option>
                 </select>
             </div>
@@ -630,11 +1370,11 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Delivery Address</label>
-                    <input class="form-input" type="text" id="edit-delivery-address" name="delivery_address">
+                    <input class="form-input" type="text" id="edit-customer-delivery-address" name="customer_delivery_address">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Postcode</label>
-                    <input class="form-input" type="text" id="edit-customer-postcode" name="postcode">
+                    <input class="form-input" type="text" id="edit-customer-postcode" name="customer_postcode">
                 </div>
             </div>
 
@@ -651,11 +1391,39 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Postcode</label>
-                    <input class="form-input" type="text" id="edit-producer-postcode" name="postcode">
+                    <input class="form-input" type="text" id="edit-producer-postcode" name="producer_postcode">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Bio</label>
                     <input class="form-input" type="text" id="edit-bio" name="bio">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Stripe Connected Account ID</label>
+                    <input class="form-input" type="text" id="edit-stripe-account-id" name="stripe_account_id" placeholder="acct_xxxxxxxxxxxxx">
+                    <small style="color:var(--text-muted);font-size:0.77rem;">Used for automated weekly payouts. Leave blank to skip transfers for this producer.</small>
+                </div>
+            </div>
+
+            <!-- Community Group Representative profile fields -->
+            <div id="modal-community-fields" style="display:none;">
+                <p class="modal-section-title">Community Group Representative Profile</p>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Organization Name</label>
+                        <input class="form-input" type="text" id="edit-organization-name" name="organization_name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Organization Type</label>
+                        <input class="form-input" type="text" id="edit-organization-type" name="organization_type">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Delivery Address</label>
+                    <input class="form-input" type="text" id="edit-community-delivery-address" name="community_delivery_address">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Postcode</label>
+                    <input class="form-input" type="text" id="edit-community-postcode" name="community_postcode">
                 </div>
             </div>
 
@@ -673,6 +1441,7 @@ function switchTab(name, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
     btn.classList.add('active');
+    if (name === 'commission') filterCommission();
 }
 
 function filterTable(tableId, query) {
@@ -683,31 +1452,235 @@ function filterTable(tableId, query) {
     });
 }
 
+// ── ORDERS FILTERING ──
+function filterOrders() {
+    const query = (document.getElementById('orders-search').value || '').toLowerCase();
+    const dateFrom = document.getElementById('orders-date-from').value;
+    const dateTo = document.getElementById('orders-date-to').value;
+    const rows = document.querySelectorAll('#orders-table tbody tr:not(.empty-row)');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const rowDate = row.getAttribute('data-date') || '';
+        const textMatch = !query || text.includes(query);
+        const fromMatch = !dateFrom || rowDate >= dateFrom;
+        const toMatch = !dateTo || rowDate <= dateTo;
+        row.style.display = (textMatch && fromMatch && toMatch) ? '' : 'none';
+    });
+}
+
+function setOrdersPreset(preset) {
+    const today = new Date().toISOString().slice(0, 10);
+    const fromInput = document.getElementById('orders-date-from');
+    const toInput = document.getElementById('orders-date-to');
+    document.querySelectorAll('#tab-orders .date-preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+    } else if (preset === 'today') {
+        fromInput.value = today;
+        toInput.value = today;
+    } else if (preset === 'week') {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        fromInput.value = d.toISOString().slice(0, 10);
+        toInput.value = today;
+    } else if (preset === 'month') {
+        const d = new Date(); d.setDate(d.getDate() - 30);
+        fromInput.value = d.toISOString().slice(0, 10);
+        toInput.value = today;
+    }
+    filterOrders();
+}
+
+// ── COMMISSION FILTERING ──
+function filterCommissionTable() {
+    const q = (document.getElementById('commission-search').value || '').toLowerCase();
+    const rows = document.querySelectorAll('#commission-table tbody tr:not(.empty-row)');
+    rows.forEach(row => {
+        row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function filterCommission() {
+    const dateFrom = document.getElementById('commission-date-from').value;
+    const dateTo = document.getElementById('commission-date-to').value;
+    const statusFilter = (document.getElementById('commission-status').value || '').toUpperCase();
+
+    const allRows = document.querySelectorAll('#orders-table tbody tr:not(.empty-row)');
+    let revenue = 0, commission = 0, orderCount = 0;
+    const producerTotals = {};
+    const monthlyTotals = {};
+
+    allRows.forEach(row => {
+        const rowDate = row.getAttribute('data-date') || '';
+        const cells = row.querySelectorAll('td');
+        const rowStatus = cells[6].textContent.trim().toUpperCase();
+        const fromMatch = !dateFrom || rowDate >= dateFrom;
+        const toMatch = !dateTo || rowDate <= dateTo;
+        const statusMatch = !statusFilter || rowStatus.includes(statusFilter);
+
+        if (fromMatch && toMatch && statusMatch) {
+            const r = parseFloat((cells[3].textContent || '0').replace('£', '')) || 0;
+            const c = parseFloat((cells[4].textContent || '0').replace('£', '')) || 0;
+            const producer = cells[2].textContent.trim();
+            const month = rowDate.slice(0, 7); // YYYY-MM
+            revenue += r;
+            commission += c;
+            orderCount++;
+
+            // Producer totals
+            if (!producerTotals[producer]) producerTotals[producer] = { orders: 0, revenue: 0, commission: 0 };
+            producerTotals[producer].orders++;
+            producerTotals[producer].revenue += r;
+            producerTotals[producer].commission += c;
+
+            // Monthly totals
+            if (!monthlyTotals[month]) monthlyTotals[month] = { orders: 0, revenue: 0, commission: 0 };
+            monthlyTotals[month].orders++;
+            monthlyTotals[month].revenue += r;
+            monthlyTotals[month].commission += c;
+        }
+    });
+
+    // Update period summary cards
+    document.getElementById('period-orders').textContent = orderCount;
+    document.getElementById('period-revenue').textContent = '£' + revenue.toFixed(2);
+    document.getElementById('period-commission').textContent = '£' + commission.toFixed(2);
+    document.getElementById('period-payout').textContent = '£' + (revenue - commission).toFixed(2);
+
+    // Rebuild monthly summary table
+    const monthlyTbody = document.getElementById('monthly-tbody');
+    monthlyTbody.innerHTML = '';
+    const months = Object.keys(monthlyTotals).sort().reverse();
+    if (months.length === 0) {
+        monthlyTbody.innerHTML = '<tr class="empty-row"><td colspan="5">No data for this period.</td></tr>';
+    } else {
+        months.forEach(month => {
+            const d = monthlyTotals[month];
+            const label = new Date(month + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+            monthlyTbody.innerHTML += `<tr>
+                <td><strong>${label}</strong></td>
+                <td>${d.orders}</td>
+                <td>£${d.revenue.toFixed(2)}</td>
+                <td>£${d.commission.toFixed(2)}</td>
+                <td>£${(d.revenue - d.commission).toFixed(2)}</td>
+            </tr>`;
+        });
+    }
+
+    // Rebuild producer breakdown table
+    const tbody = document.getElementById('commission-tbody');
+    tbody.innerHTML = '';
+    const sorted = Object.entries(producerTotals).sort((a, b) => b[1].commission - a[1].commission);
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No commission data for this period.</td></tr>';
+    } else {
+        sorted.forEach(([producer, data]) => {
+            const payout = data.revenue - data.commission;
+            tbody.innerHTML += `<tr>
+                <td><strong>${producer}</strong></td>
+                <td>${data.orders}</td>
+                <td>£${data.revenue.toFixed(2)}</td>
+                <td>£${data.commission.toFixed(2)}</td>
+                <td>£${payout.toFixed(2)}</td>
+            </tr>`;
+        });
+    }
+}
+
+function setCommissionPreset(preset) {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const fromInput = document.getElementById('commission-date-from');
+    const toInput = document.getElementById('commission-date-to');
+    document.querySelectorAll('#tab-commission .date-preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    if (preset === 'all') {
+        fromInput.value = '';
+        toInput.value = '';
+    } else if (preset === 'today') {
+        fromInput.value = todayStr;
+        toInput.value = todayStr;
+    } else if (preset === 'week') {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        fromInput.value = d.toISOString().slice(0, 10);
+        toInput.value = todayStr;
+    } else if (preset === 'month') {
+        fromInput.value = todayStr.slice(0, 7) + '-01';
+        toInput.value = todayStr;
+    } else if (preset === 'ytd') {
+        fromInput.value = todayStr.slice(0, 4) + '-01-01';
+        toInput.value = todayStr;
+    }
+    filterCommission();
+}
+
+function exportCommissionCSV() {
+    const dateFrom = document.getElementById('commission-date-from').value;
+    const dateTo = document.getElementById('commission-date-to').value;
+    let url = '/admin-dashboard/commission/export/';
+    const params = [];
+    if (dateFrom) params.push('date_from=' + dateFrom);
+    if (dateTo) params.push('date_to=' + dateTo);
+    if (params.length) url += '?' + params.join('&');
+    window.location.href = url;
+}
+
+// ── SORTING ──
+const sortState = {};
+function sortTable(tableId, colIndex) {
+    const key = tableId + '_' + colIndex;
+    sortState[key] = !sortState[key];
+    const asc = sortState[key];
+    const tbody = document.querySelector('#' + tableId + ' tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+    rows.sort((a, b) => {
+        const aText = a.querySelectorAll('td')[colIndex]?.textContent.trim() || '';
+        const bText = b.querySelectorAll('td')[colIndex]?.textContent.trim() || '';
+        const aNum = parseFloat(aText.replace(/[£,]/g, ''));
+        const bNum = parseFloat(bText.replace(/[£,]/g, ''));
+        if (!isNaN(aNum) && !isNaN(bNum)) return asc ? aNum - bNum : bNum - aNum;
+        return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    // Update sort icons
+    document.querySelectorAll('#' + tableId + ' .sort-icon').forEach((icon, i) => {
+        icon.textContent = i === colIndex ? (asc ? '↑' : '↓') : '↕';
+    });
+}
+
 function toggleModalProfileFields(role) {
     document.getElementById('modal-customer-fields').style.display = role === 'CUSTOMER' ? '' : 'none';
     document.getElementById('modal-producer-fields').style.display = role === 'PRODUCER' ? '' : 'none';
+    document.getElementById('modal-community-fields').style.display = role === 'COMMUNITY-GROUP-REPRESENTATIVE' ? '' : 'none';
 }
 
 function openEditModalFromBtn(userId) {
     const data = JSON.parse(document.getElementById('user-data-' + userId).textContent);
     openEditModal(data.id, data.username, data.email, data.phone, data.role,
-        data.firstName, data.lastName, data.deliveryAddress, data.customerPostcode,
-        data.businessName, data.businessAddress, data.producerPostcode, data.bio);
+        data.firstName, data.lastName, data.customerDeliveryAddress, data.customerPostcode,
+        data.businessName, data.businessAddress, data.producerPostcode, data.bio, data.stripeAccountId,
+        data.organizationName, data.organizationType, data.communityDeliveryAddress, data.communityPostcode);
 }
 
-function openEditModal(id, username, email, phone, role, firstName, lastName, deliveryAddress, customerPostcode, businessName, businessAddress, producerPostcode, bio) {
-    document.getElementById('edit-username').value = username;
-    document.getElementById('edit-email').value = email;
-    document.getElementById('edit-phone').value = phone;
-    document.getElementById('edit-role').value = role;
-    document.getElementById('edit-first-name').value = firstName;
-    document.getElementById('edit-last-name').value = lastName;
-    document.getElementById('edit-delivery-address').value = deliveryAddress;
-    document.getElementById('edit-customer-postcode').value = customerPostcode;
-    document.getElementById('edit-business-name').value = businessName;
-    document.getElementById('edit-business-address').value = businessAddress;
-    document.getElementById('edit-producer-postcode').value = producerPostcode;
-    document.getElementById('edit-bio').value = bio;
+function openEditModal(id, username, email, phone, role, firstName, lastName, customerDeliveryAddress, customerPostcode, businessName, businessAddress, producerPostcode, bio, stripeAccountId, organizationName, organizationType, communityDeliveryAddress, communityPostcode) {
+    document.getElementById('edit-username').value = username || '';
+    document.getElementById('edit-email').value = email || '';
+    document.getElementById('edit-phone').value = phone || '';
+    document.getElementById('edit-role').value = role || '';
+    document.getElementById('edit-first-name').value = firstName || '';
+    document.getElementById('edit-last-name').value = lastName || '';
+    document.getElementById('edit-customer-delivery-address').value = customerDeliveryAddress || '';
+    document.getElementById('edit-customer-postcode').value = customerPostcode || '';
+    document.getElementById('edit-business-name').value = businessName || '';
+    document.getElementById('edit-business-address').value = businessAddress || '';
+    document.getElementById('edit-producer-postcode').value = producerPostcode || '';
+    document.getElementById('edit-bio').value = bio || '';
+    document.getElementById('edit-stripe-account-id').value = stripeAccountId || '';
+    document.getElementById('edit-organization-name').value = organizationName || '';
+    document.getElementById('edit-organization-type').value = organizationType || '';
+    document.getElementById('edit-community-delivery-address').value = communityDeliveryAddress || '';
+    document.getElementById('edit-community-postcode').value = communityPostcode || '';
     document.getElementById('edit-user-form').action = '/admin-dashboard/users/' + id + '/edit/';
     toggleModalProfileFields(role);
     document.getElementById('edit-modal').classList.add('open');
@@ -720,5 +1693,193 @@ function closeEditModal() {
 document.getElementById('edit-modal').addEventListener('click', function(e) {
     if (e.target === this) closeEditModal();
 });
+
+var userMap = {};
+{% for u in users %}userMap[{{ u.id }}] = '{{ u.username|escapejs }}';{% endfor %}
+
+var emailPreviewCache = {};
+
+function relativeTime(iso) {
+    var diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)    return 'just now';
+    if (diff < 3600)  return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+}
+
+var PRODUCER_TYPES = new Set([
+    'ORDER_PLACED', 'LOW_STOCK', 'OUT_OF_STOCK', 'SURPLUS_DEAL',
+    'SEASONAL_REMINDER', 'SETTLEMENT_READY', 'RECURRING_ORDER_PLACED'
+]);
+var CUSTOMER_TYPES = new Set([
+    'ORDER_CONFIRMED', 'ORDER_READY', 'ORDER_DELIVERED', 'ORDER_CANCELLED',
+    'ORDER_UPDATE', 'PAYMENT_RECEIVED', 'PAYMENT_FAILED', 'ORDER_SUMMARY',
+    'RECURRING_ORDER_REMINDER', 'RECURRING_ORDER_PAUSED'
+]);
+
+function loadNotifications() {
+    var params = new URLSearchParams();
+    var type  = document.getElementById('notif-filter-type').value;
+    var role  = document.getElementById('notif-filter-role').value;
+    var email = document.getElementById('notif-filter-email').value;
+    var user  = document.getElementById('notif-filter-user').value;
+    var from  = document.getElementById('notif-filter-from').value;
+    var to    = document.getElementById('notif-filter-to').value;
+    if (type)  params.set('type', type);
+    if (email) params.set('email_sent', email);
+    if (user)  params.set('recipient_id', user);
+    if (from)  params.set('date_from', from);
+    if (to)    params.set('date_to', to);
+
+    document.getElementById('notif-admin-loading').textContent = 'Loading…';
+    document.getElementById('notif-admin-loading').style.display = 'block';
+    document.getElementById('notif-admin-table-wrap').style.display = 'none';
+
+    fetch('/admin-dashboard/notifications/?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(items) {
+            if (role === 'producer') items = items.filter(function(n) { return PRODUCER_TYPES.has(n.notification_type); });
+            else if (role === 'customer') items = items.filter(function(n) { return CUSTOMER_TYPES.has(n.notification_type); });
+            var tbody = document.getElementById('notif-admin-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('notif-count-label').textContent = items.length + ' result' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No notifications found.</td></tr>';
+            } else {
+                items.forEach(function(n) {
+                    var recipient = userMap[n.recipient_id] ? userMap[n.recipient_id] + ' (' + n.recipient_id + ')' : 'User ' + n.recipient_id;
+                    var typeBadge = '<span style="font-size:0.75rem;font-weight:700;padding:2px 7px;border-radius:4px;background:var(--green-light);color:var(--green);">' + n.notification_type.replace(/_/g, ' ') + '</span>';
+                    var emailBadge = n.email_sent
+                        ? '<span style="color:#1a7a42;font-weight:700;">✓ Sent</span>'
+                        : '<span style="color:var(--text-muted);">—</span>';
+                    var inAppBadge = n.show_in_app
+                        ? '<span style="color:#1a7a42;">✓</span>'
+                        : '<span style="color:var(--text-muted);">—</span>';
+                    var readBadge = n.is_read
+                        ? '<span style="color:var(--text-muted);">Read</span>'
+                        : '<span style="color:#00622e;font-weight:700;">Unread</span>';
+                    var emailViewBtn = '';
+                    if (n.email_log) {
+                        var cacheKey = 'notif-' + n.id;
+                        emailPreviewCache[cacheKey] = n.email_log;
+                        emailViewBtn = '<button onclick="openEmailPreviewByKey(\'' + cacheKey + '\')" style="padding:3px 10px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;font-size:0.78rem;">View Email</button>';
+                    }
+                    var tr = document.createElement('tr');
+                    tr.innerHTML =
+                        '<td>' + n.id + '</td>' +
+                        '<td>' + recipient + '</td>' +
+                        '<td>' + typeBadge + '</td>' +
+                        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + (n.title || '') + '">' + (n.title || '—') + '</td>' +
+                        '<td style="text-align:center;">' + inAppBadge + '</td>' +
+                        '<td style="text-align:center;">' + emailBadge + '</td>' +
+                        '<td style="text-align:center;">' + readBadge + '</td>' +
+                        '<td style="white-space:nowrap;">' + relativeTime(n.created_at) + '</td>' +
+                        '<td>' + emailViewBtn + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+            document.getElementById('notif-admin-loading').style.display = 'none';
+            document.getElementById('notif-admin-table-wrap').style.display = 'block';
+        })
+        .catch(function() {
+            document.getElementById('notif-admin-loading').textContent = 'Could not load notifications.';
+        });
+}
+
+function clearNotifFilters() {
+    document.getElementById('notif-filter-type').value = '';
+    document.getElementById('notif-filter-role').value = '';
+    document.getElementById('notif-filter-email').value = '';
+    document.getElementById('notif-filter-user').value = '';
+    document.getElementById('notif-filter-from').value = '';
+    document.getElementById('notif-filter-to').value = '';
+    document.getElementById('notif-count-label').textContent = '';
+    document.getElementById('notif-admin-loading').textContent = 'Select filters and click Apply, or load all.';
+    document.getElementById('notif-admin-loading').style.display = 'block';
+    document.getElementById('notif-admin-table-wrap').style.display = 'none';
+}
+
+function switchNotifSubtab(name) {
+    document.getElementById('notif-subpanel-notifs').style.display = name === 'notifs' ? 'block' : 'none';
+    document.getElementById('notif-subpanel-emails').style.display = name === 'emails' ? 'block' : 'none';
+    document.getElementById('notif-subtab-notifs').style.borderBottomColor = name === 'notifs' ? 'var(--green)' : 'transparent';
+    document.getElementById('notif-subtab-notifs').style.color = name === 'notifs' ? 'var(--green)' : 'var(--text-muted)';
+    document.getElementById('notif-subtab-emails').style.borderBottomColor = name === 'emails' ? 'var(--green)' : 'transparent';
+    document.getElementById('notif-subtab-emails').style.color = name === 'emails' ? 'var(--green)' : 'var(--text-muted)';
+    if (name === 'emails' && !document.getElementById('email-log-table-wrap').style.display.includes('block')) {
+        loadEmailLogs();
+    }
+}
+
+function loadEmailLogs() {
+    var params = new URLSearchParams();
+    var type      = document.getElementById('email-filter-type').value;
+    var status    = document.getElementById('email-filter-status').value;
+    var recipient = document.getElementById('email-filter-recipient').value;
+    var from      = document.getElementById('email-filter-from').value;
+    var to        = document.getElementById('email-filter-to').value;
+    if (type)      params.set('type', type);
+    if (status)    params.set('status', status);
+    if (recipient) params.set('recipient_email', recipient);
+    if (from)      params.set('date_from', from);
+    if (to)        params.set('date_to', to);
+
+    document.getElementById('email-log-loading').textContent = 'Loading…';
+    document.getElementById('email-log-loading').style.display = 'block';
+    document.getElementById('email-log-table-wrap').style.display = 'none';
+
+    fetch('/admin-dashboard/email-logs/?' + params.toString())
+        .then(function(r) { return r.json(); })
+        .then(function(items) {
+            var tbody = document.getElementById('email-log-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('email-count-label').textContent = items.length + ' result' + (items.length !== 1 ? 's' : '');
+            if (!items.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No email logs found.</td></tr>';
+            } else {
+                items.forEach(function(log) {
+                    var statusBadge = log.status === 'SENT'
+                        ? '<span style="color:#1a7a42;font-weight:700;">✓ Sent</span>'
+                        : '<span style="color:#c0392b;font-weight:700;">✗ Failed</span>';
+                    var typeParts = (log.subject || '').replace('BRFN: ', '');
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = [
+                        '<td>' + new Date(log.sent_at).toLocaleString() + '</td>',
+                        '<td>' + statusBadge + '</td>',
+                        '<td>' + (log.notification_id || '—') + '</td>',
+                        '<td>' + (log.recipient_email || '—') + '</td>',
+                        '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (log.subject || '') + '</td>',
+                        '<td><button class="btn-sm-edit" onclick="openEmailPreviewByKey(\'log-' + log.id + '\')">View</button></td>',
+                    ].join('');
+                    emailPreviewCache['log-' + log.id] = log.html_body || '<em>No body stored.</em>';
+                    tbody.appendChild(tr);
+                });
+            }
+            document.getElementById('email-log-loading').style.display = 'none';
+            document.getElementById('email-log-table-wrap').style.display = 'block';
+        })
+        .catch(function() {
+            document.getElementById('email-log-loading').textContent = 'Failed to load email logs.';
+        });
+}
+
+function openEmailPreviewByKey(key) {
+    var html = emailPreviewCache[key];
+    if (!html) { return; }
+    var modal = document.getElementById('email-preview-modal');
+    var frame = document.getElementById('email-preview-frame');
+    frame.srcdoc = html;
+    modal.style.display = 'flex';
+}
+
+function closeEmailPreview() {
+    document.getElementById('email-preview-modal').style.display = 'none';
+    document.getElementById('email-preview-frame').srcdoc = '';
+}
+
+document.getElementById('email-preview-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEmailPreview();
+});
+
 </script>
 {% endblock %}

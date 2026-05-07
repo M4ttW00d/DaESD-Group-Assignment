@@ -1,9 +1,7 @@
 from rest_framework import serializers
-from .models import Order, OrderItem, OrderStatusLog, CustomerOrder
+from .models import Order, OrderItem, OrderStatusLog, CustomerOrder, RecurringOrder, RecurringOrderItem
 from products.models import Product
-from django.utils import timezone
 from decimal import Decimal
-import datetime
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
@@ -25,6 +23,7 @@ class OrderSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
     status_logs = OrderStatusLogSerializer(many=True, read_only=True)
     customer_username = serializers.ReadOnlyField(source='customer.username')
+    customer_postcode = serializers.CharField(source='customer.customer_profile.postcode', read_only=True, default='')
     
     # Customer Details for Producers
     customer_first_name = serializers.CharField(source='customer.customer_profile.first_name', read_only=True)
@@ -34,20 +33,24 @@ class OrderSerializer(serializers.ModelSerializer):
     delivery_address = serializers.CharField(source='customer.customer_profile.delivery_address', read_only=True)
     
     # Producer Details
-    producer_name = serializers.CharField(source='producer.producer_profile.business_name', read_only=True)
-    
+    producer_id    = serializers.IntegerField(source='producer.id', read_only=True, default=None)
+    producer_email = serializers.CharField(source='producer.email', read_only=True)
+    producer_phone = serializers.CharField(source='producer.phone_number', read_only=True)
+    producer_name  = serializers.CharField(source='producer.producer_profile.business_name', read_only=True)
+
     # Producer specific total
     producer_total = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = (
-            'id', 'customer', 'customer_username', 'customer_first_name', 'customer_last_name',
+            'id', 'customer_order', 'customer', 'customer_username', 'customer_postcode',
+            'customer_first_name', 'customer_last_name',
             'customer_phone', 'customer_email', 'delivery_address', 'collection_type',
-            'total_amount', 'commission_total', 'producer_name', 'producer_total',
-            'status', 'status_logs', 'delivery_date', 'created_at', 'items'
+            'total_amount', 'commission_total', 'producer_id', 'producer_email', 'producer_phone', 'producer_name', 'producer_total',
+            'delivery_instruction', 'status', 'status_logs', 'delivery_date', 'food_miles', 'created_at', 'items'
         )
-        read_only_fields = ('id', 'customer', 'total_amount', 'commission_total', 'created_at', 'items', 'producer_total', 'status_logs')
+        read_only_fields = ('id', 'customer_order', 'customer', 'total_amount', 'commission_total', 'created_at', 'items', 'producer_total', 'status_logs')
 
     def get_items(self, obj):
         request = self.context.get('request')
@@ -65,21 +68,42 @@ class OrderSerializer(serializers.ModelSerializer):
             return sum(item.price_at_sale * item.quantity for item in items)
         return None
 
-    def validate_delivery_date(self, value):
-        if value:
-            min_date = timezone.now().date() + datetime.timedelta(days=2)
-            if value < min_date:
-                raise serializers.ValidationError("Delivery date must be at least 48 hours from now.")
-        return value
+class RecurringOrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.ReadOnlyField(source='product.name')
+    current_price = serializers.DecimalField(
+        source='product.current_price',
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+
+    class Meta:
+        model = RecurringOrderItem
+        fields = ('id', 'product', 'product_name', 'quantity', 'current_price')
 
 class CustomerOrderSerializer(serializers.ModelSerializer):
     orders = OrderSerializer(many=True, read_only=True)
     overall_status = serializers.CharField(read_only=True)
     total_items = serializers.IntegerField(read_only=True)
+    can_cancel = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = CustomerOrder
         fields = (
             'id', 'customer', 'total_amount', 'commission_total', 'overall_status',
-            'total_items', 'orders', 'created_at', 'updated_at'
+            'total_items', 'can_cancel', 'orders', 'created_at', 'updated_at'
+        )
+        read_only_fields = ('id', 'customer', 'total_amount', 'commission_total', 'created_at', 'updated_at', 'orders', 'overall_status', 'total_items')
+
+class RecurringOrderSerializer(serializers.ModelSerializer):
+    items = RecurringOrderItemSerializer(many=True, read_only=True)
+    order_day = serializers.CharField(source='get_order_day_display', read_only=True)
+    delivery_day = serializers.CharField(source='get_delivery_day_display', read_only=True)
+    source_customer_order = CustomerOrderSerializer(read_only=True)
+
+    class Meta:
+        model = RecurringOrder
+        fields = (
+            'id', 'status', 'order_day', 'delivery_day', 'created_at',
+            'next_order_date', 'source_customer_order', 'items'
         )

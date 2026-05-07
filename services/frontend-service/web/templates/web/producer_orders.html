@@ -81,6 +81,26 @@ font-size: 1.5rem;
 color: var(--text);
 margin-bottom: 0.5rem;
 }
+
+.food-miles-banner {
+    background: var(--green-light);
+    border: 1px solid #b8dfc8;
+    border-radius: 8px;
+    padding: 0.85rem 1.25rem;
+    margin-bottom: 1.25rem;
+    color: var(--green);
+    font-size: 0.95rem;
+}
+
+.food-miles-badge {
+    background: var(--green-light);
+    color: var(--green);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+}
 {% endblock %}
 
 {% block content %}
@@ -100,6 +120,13 @@ margin-bottom: 0.5rem;
     {% endif %}
 
     {% if orders %}
+
+    {% if total_food_miles %}
+    <div class="food-miles-banner">
+        🌍 Total food miles from your delivered orders: <strong>{{ total_food_miles }} miles</strong>
+    </div>
+    {% endif %}
+
     <table class="orders-table">
         <thead>
             <tr>
@@ -108,6 +135,7 @@ margin-bottom: 0.5rem;
                 <th>Order Date</th>
                 <th>Delivery Date</th>
                 <th>Total Value (Your share)</th>
+                <th>Food Miles</th>
                 <th>Status</th>
                 <th>Action</th>
             </tr>
@@ -120,6 +148,13 @@ margin-bottom: 0.5rem;
                 <td>{{ order.created_at|slice:":10" }}</td>
                 <td>{{ order.delivery_date|default:"Not specified" }}</td>
                 <td>£{{ order.producer_total|default:"0.00"|floatformat:2 }}</td>
+                <td>
+                    {% if order.food_miles %}
+                    <span class="food-miles-badge">🌍 {{ order.food_miles }} mi</span>
+                    {% else %}
+                    <span style="color:var(--text-muted);font-size:0.8rem;">—</span>
+                    {% endif %}
+                </td>
                 <td><span class="badge badge-category">{{ order.status }}</span></td>
                 <td><a href="/dashboard/orders/{{ order.id }}/" class="btn-secondary btn-sm">View Details</a></td>
             </tr>

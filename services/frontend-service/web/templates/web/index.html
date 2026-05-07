@@ -429,6 +429,10 @@
     padding-bottom: 0.85rem;
 }
 
+.card-producer:hover {
+    text-decoration: underline !important;
+}
+
 .card-footer {
     display: flex;
     align-items: flex-end;
@@ -754,71 +758,77 @@
 
         <div class="products-grid">
             {% for product in products %}
-            <a class="product-card" href="/products/{{ product.id }}/">
+            <div class="product-card">
+                <a href="/products/{{ product.id }}/" style="text-decoration: none; color: inherit;">
+                    <div class="card-image">
+                        {% if product.image %}
+                        <img
+                            src="{{ media_base_url }}/media/{{ product.image }}"
+                            alt="{{ product.name }}"
+                            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+                        >
+                        <div class="card-image-placeholder" style="display:none;">
+                            <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M24 36C24 36 10 28 10 18C10 12 16 8 24 8C32 8 38 12 38 18C38 28 24 36 24 36Z" fill="currentColor"/></svg>
+                            <span>{{ product.name }}</span>
+                        </div>
+                        {% else %}
+                        <div class="card-image-placeholder">
+                            <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M24 36C24 36 10 28 10 18C10 12 16 8 24 8C32 8 38 12 38 18C38 28 24 36 24 36Z" fill="currentColor"/><line x1="24" y1="36" x2="24" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <span>No image</span>
+                        </div>
+                        {% endif %}
 
-                <div class="card-image">
-                    {% if product.image %}
-                    <img
-                        src="{{ media_base_url }}/media/{{ product.image }}"
-                        alt="{{ product.name }}"
-                        onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
-                    >
-                    <div class="card-image-placeholder" style="display:none;">
-                        <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M24 36C24 36 10 28 10 18C10 12 16 8 24 8C32 8 38 12 38 18C38 28 24 36 24 36Z" fill="currentColor"/></svg>
-                        <span>{{ product.name }}</span>
-                    </div>
-                    {% else %}
-                    <div class="card-image-placeholder">
-                        <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M24 36C24 36 10 28 10 18C10 12 16 8 24 8C32 8 38 12 38 18C38 28 24 36 24 36Z" fill="currentColor"/><line x1="24" y1="36" x2="24" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                        <span>No image</span>
-                    </div>
-                    {% endif %}
+                        <div class="card-badges">
+                            {% if product.is_surplus %}
+                            <span class="badge badge-surplus">🔥 SURPLUS DEAL</span>
+                            {% endif %}
+                            {% if product.category %}
+                            <span class="badge badge-category">{{ product.category }}</span>
+                            {% endif %}
+                            {% if product.is_organic %}
+                            <span class="badge badge-organic">🌿 Organic</span>
+                            {% endif %}
+                        </div>
 
-                    <div class="card-badges">
-                        {% if product.is_surplus %}
-                        <span class="badge badge-surplus">🔥 SURPLUS DEAL</span>
-                        {% endif %}
-                        {% if product.category %}
-                        <span class="badge badge-category">{{ product.category }}</span>
-                        {% endif %}
-                        {% if product.is_organic %}
-                        <span class="badge badge-organic">🌿 Organic</span>
-                        {% endif %}
+                        <div class="card-stock-badge">
+                            {% if not product.is_currently_in_season and product.seasonal_availability_text %}
+                            <span class="badge badge-unavailable">Out of Season</span>
+                            {% elif not product.is_available %}
+                            <span class="badge badge-unavailable">Unavailable</span>
+                            {% elif product.stock_quantity <= 5 %}
+                            <span class="badge badge-low-stock">Low stock</span>
+                            {% endif %}
+                        </div>
                     </div>
-
-                    <div class="card-stock-badge">
-                        {% if not product.is_available %}
-                        <span class="badge badge-unavailable">Unavailable</span>
-                        {% elif product.stock_quantity <= 5 %}
-                        <span class="badge badge-low-stock">Low stock</span>
-                        {% endif %}
-                    </div>
-                </div>
+                </a>
 
                 <div class="card-body">
-                    <h2 class="card-name">{{ product.name }}</h2>
-                    <p class="card-producer">
+                    <a href="/products/{{ product.id }}/" style="text-decoration: none; color: inherit;">
+                        <h2 class="card-name">{{ product.name }}</h2>
+                    </a>
+                    <a href="/producers/{{ product.producer }}/" class="card-producer" style="text-decoration: none; color: inherit; font-weight: bold; position: relative; z-index: 2;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        {{ product.producer_username }}
-                    </p>
-                    <div class="card-footer">
-                        <div class="card-price">
-                            {% if product.is_surplus %}
-                            <span class="card-original-price">£{{ product.price }}</span>
-                            £{{ product.current_price }}
-                            {% else %}
-                            £{{ product.price }}
-                            {% endif %}
-                            <span>per {{ product.unit|default:"item" }}</span>
+                        {{ product.producer_profile.business_name|default:product.producer_username }}
+                    </a>
+                    <a href="/products/{{ product.id }}/" style="text-decoration: none; color: inherit;">
+                        <div class="card-footer">
+                            <div class="card-price">
+                                {% if product.is_surplus %}
+                                <span class="card-original-price">£{{ product.price }}</span>
+                                £{{ product.current_price }}
+                                {% else %}
+                                £{{ product.price }}
+                                {% endif %}
+                                <span>per {{ product.unit|default:"item" }}</span>
+                            </div>
+                            <div class="card-stock-info">
+                                <strong>{% if not product.is_available %}—{% else %}{{ product.stock_quantity }}{% endif %}</strong>
+                                in stock
+                            </div>
                         </div>
-                        <div class="card-stock-info">
-                            <strong>{{ product.stock_quantity }}</strong>
-                            in stock
-                        </div>
-                    </div>
+                    </a>
                 </div>
-
-            </a>
+            </div>
             {% empty %}
             <div class="empty-state">
                 <svg width="56" height="56" viewBox="0 0 48 48" fill="none" opacity="0.2"><path d="M24 36C24 36 10 28 10 18C10 12 16 8 24 8C32 8 38 12 38 18C38 28 24 36 24 36Z" fill="currentColor"/></svg>

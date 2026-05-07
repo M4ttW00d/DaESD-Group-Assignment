@@ -22,6 +22,78 @@
             📍 {{ producer.producer_profile.business_address }} {{ producer.producer_profile.postcode }}
         </p>
         {% endif %}
+
+        {% if request.session.role == 'CUSTOMER' or request.session.role == 'COMMUNITY-GROUP-REPRESENTATIVE' %}
+        <div style="margin-top: 1.5rem;">
+            <button id="fav-btn"
+                data-producer-id="{{ producer.id }}"
+                onclick="toggleFavourite(this)"
+                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.4rem;
+                       border: 2px solid var(--terra); border-radius: 8px; background: transparent;
+                       color: var(--terra); font-family: 'Source Sans 3', sans-serif; font-weight: 700;
+                       font-size: 0.95rem; cursor: pointer; transition: all 0.2s;">
+                <span id="fav-heart" style="font-size: 1.2rem;">♡</span>
+                <span id="fav-label">Favourite Producer</span>
+            </button>
+            <p id="fav-hint" style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.5rem;">
+                Get notified about surplus deals from this producer
+            </p>
+        </div>
+
+        <script>
+        (function () {
+            const btn = document.getElementById('fav-btn');
+            const heart = document.getElementById('fav-heart');
+            const label = document.getElementById('fav-label');
+            const producerId = '{{ producer.id }}';
+
+            function getCsrf() {
+                const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+                return m ? m[1] : '';
+            }
+
+            function setFavourited(isFav) {
+                if (isFav) {
+                    heart.textContent = '♥';
+                    label.textContent = 'Favourited';
+                    btn.style.background = 'var(--terra)';
+                    btn.style.color = '#fff';
+                } else {
+                    heart.textContent = '♡';
+                    label.textContent = 'Favourite Producer';
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--terra)';
+                }
+            }
+
+            fetch('/favourites/')
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data) return;
+                    const ids = (data.favourited_producer_ids || []).map(Number);
+                    setFavourited(ids.includes(Number(producerId)));
+                })
+                .catch(() => {});
+
+            window.toggleFavourite = function () {
+                btn.disabled = true;
+                fetch('/producers/' + producerId + '/favourite/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (data && Object.prototype.hasOwnProperty.call(data, 'favourited')) {
+                        setFavourited(data.favourited);
+                    }
+                })
+                .catch(() => {})
+                .finally(() => { btn.disabled = false; });
+            };
+        })();
+        </script>
+        {% endif %}
     </div>
 </section>
 
@@ -39,14 +111,18 @@
                     <a href="/products/{{ product.id }}/" style="text-decoration: none; color: inherit; display: block; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card-bg); transition: box-shadow 0.2s;">
                         <div style="height: 200px; background-color: #f0f0f0; position: relative;">
                             {% if product.image %}
-                                <img src="{{ media_base_url }}{{ product.image }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                <img src="{{ media_base_url }}/media/{{ product.image }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover;">
                             {% else %}
                                 <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--green-light); color: var(--green);">
                                     <span style="font-size: 3rem;">📸</span>
                                 </div>
                             {% endif %}
                             
-                            {% if not product.is_available or product.stock_quantity == 0 %}
+                            {% if not product.is_currently_in_season and product.seasonal_availability_text %}
+                                <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
+                                    Out of Season
+                                </div>
+                            {% elif not product.is_available or product.stock_quantity == 0 %}
                                 <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
                                     Out of Stock
                                 </div>
@@ -75,7 +151,7 @@
                             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                                 <span class="badge" style="background: var(--cream-dark); color: var(--text);">{{ product.category }}</span>
                                 {% if product.is_organic %}
-                                    <span class="badge" style="background: var(--green-light); color: var(--green);">Organic</span>
+                                    <span class="badge badge-organic" style="background: var(--green-light); color: var(--green);">🌿 Organic</span>
                                 {% endif %}
                                 {% if product.is_surplus %}
                                     <span class="badge" style="background: #ffebee; color: #d32f2f;">Surplus Deal</span>
@@ -97,15 +173,15 @@
                 {% if stories %}
                     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
                         {% for story in stories %}
-                            <div style="border-left: 3px solid var(--green); padding-left: 1.5rem;">
+                            <div style="background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow);">
                                 <h3 style="margin-top: 0; font-family: 'Cormorant Garamond', serif; margin-bottom: 0.5rem;">{{ story.title }}</h3>
                                 <small class="text-muted" style="display: block; margin-bottom: 1rem;">{{ story.created_at|date:"F d, Y" }}</small>
                                 
                                 {% if story.image %}
-                                    <img src="{{ media_base_url }}{{ story.image }}" alt="Story Photo" style="max-width: 100%; border-radius: var(--radius); margin-bottom: 1rem;">
+                                    <img src="{{ media_base_url }}/media/{{ story.image }}" alt="Story Photo" style="width: 100%; border-radius: var(--radius); margin-bottom: 1rem;">
                                 {% endif %}
                                 
-                                <p style="white-space: pre-wrap; font-family: 'Source Sans 3', sans-serif; line-height: 1.6;">{{ story.content }}</p>
+                                <p style="white-space: pre-wrap; font-family: 'Source Sans 3', sans-serif; line-height: 1.6; margin: 0;">{{ story.content }}</p>
                             </div>
                         {% endfor %}
                     </div>
@@ -131,7 +207,7 @@
                                 <p class="text-muted" style="margin-bottom: 1.5rem;">{{ recipe.description }}</p>
 
                                 {% if recipe.image %}
-                                    <img src="{{ media_base_url }}{{ recipe.image }}" alt="Recipe Image" style="width: 100%; border-radius: var(--radius); margin-bottom: 1rem;">
+                                    <img src="{{ media_base_url }}/media/{{ recipe.image }}" alt="Recipe Image" style="width: 100%; border-radius: var(--radius); margin-bottom: 1rem;">
                                 {% endif %}
 
                                 <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">

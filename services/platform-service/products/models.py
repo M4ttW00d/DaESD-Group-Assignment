@@ -3,7 +3,23 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from decimal import Decimal
-from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
+
+def validate_product_image(image):
+    # Max file size: 2MB
+    filesize = image.size
+    if filesize > 2 * 1024 * 1024:
+        raise ValidationError(_("Maximum file size is 2MB"))
+
+    # Reasonable dimensions (Max 2000x2000)
+    width = image.width
+    height = image.height
+    if width > 2000 or height > 2000:
+        raise ValidationError(_("Image dimensions should not exceed 2000x2000 pixels"))
+    
+    # Optional: Minimum dimensions for quality
+    if width < 100 or height < 100:
+        raise ValidationError(_("Image dimensions should be at least 100x100 pixels"))
 
 class Category(models.Model):
     """
@@ -33,6 +49,10 @@ class Product(models.Model):
     unit = models.CharField(max_length=50, blank=True, null=True, help_text=_("e.g., 'dozen', 'kg'"))
     
     stock_quantity = models.PositiveIntegerField(default=0, help_text=_("Real-time inventory tracking"))
+    low_stock_threshold = models.PositiveIntegerField(
+        default=10,
+        help_text=_("Send a LOW_STOCK notification to the producer when stock falls to or below this value")
+    )
     allergen_info = models.TextField(blank=True, null=True, help_text=_("Additional allergen information not covered by the 14 major allergens"))
     allergens = models.JSONField(default=list, blank=True, help_text=_("List of major allergens from the UK 14 allergens list"))
     
@@ -45,13 +65,54 @@ class Product(models.Model):
     seasonal_start_month = models.PositiveSmallIntegerField(blank=True, null=True, help_text=_("Automation for seasonal visibility (1-12)"))
     seasonal_end_month = models.PositiveSmallIntegerField(blank=True, null=True, help_text=_("Automation for seasonal visibility (1-12)"))
     
-    image = models.ImageField(upload_to="products/", blank=True, null=True)
+    image = models.ImageField(
+        upload_to="products/", 
+        blank=True, 
+        null=True,
+        validators=[validate_product_image]
+    )
+    
+    seasonal_reminder_sent_month = models.PositiveSmallIntegerField(
+        blank=True, null=True,
+        help_text=_("Month (1-12) for which the last seasonal reminder was sent, to avoid duplicates")
+    )
+    seasonal_reminder_sent_year = models.PositiveSmallIntegerField(
+        blank=True, null=True,
+        help_text=_("Year for which the last seasonal reminder was sent, to avoid duplicates")
+    )
+
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00, help_text=_("Cached average rating"))
+    review_count = models.PositiveIntegerField(default=0, help_text=_("Number of reviews"))
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'products'
+
+    @property
+    def is_currently_in_season(self):
+        """
+        Dynamically determine if the product is in season based on current month.
+        If no season is specified, it is always considered in season.
+        """
+        if not self.seasonal_start_month or not self.seasonal_end_month:
+            return True
+        current_month = timezone.now().month
+        if self.seasonal_start_month <= self.seasonal_end_month:
+            return self.seasonal_start_month <= current_month <= self.seasonal_end_month
+        else:
+            # Handles cases like Nov to Feb (11 to 2)
+            return current_month >= self.seasonal_start_month or current_month <= self.seasonal_end_month
+
+    @property
+    def seasonal_availability_text(self):
+        """Returns formatted string like 'Jun - Aug'."""
+        if not self.seasonal_start_month or not self.seasonal_end_month:
+            return None
+        months = {1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'May', 6: 'Jun', 
+                  7: 'Jul', 8: 'Aug', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'}
+        return f"{months.get(self.seasonal_start_month)} - {months.get(self.seasonal_end_month)}"
 
     @property
     def surplus_deal(self):

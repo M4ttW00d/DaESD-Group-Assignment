@@ -1,7 +1,10 @@
 import json
-from datetime import datetime, timezone
+import logging
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from urllib.parse import urlencode
+
+logger = logging.getLogger(__name__)
 
 try:
     import stripe
@@ -14,7 +17,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import Payment
+from .models import Payment, ProducerSettlement, WeeklySettlement
 
 
 class CheckoutError(Exception):
@@ -70,7 +73,10 @@ def list_transactions(request):
         stripe.api_key = settings.STRIPE_SECRET_KEY
         limit = _coerce_limit(request.GET.get('limit'))
 
-        sessions = stripe.checkout.Session.list(limit=limit)
+        sessions = stripe.checkout.Session.list(
+            limit=limit,
+            expand=['data.payment_intent.latest_charge'],
+        )
         session_rows = sessions.data
         session_ids = [s.id for s in session_rows if s.id]
 
@@ -85,20 +91,89 @@ def list_transactions(request):
             local_payment = payments_by_session.get(session_id)
             amount_total = session.amount_total
             created_unix = session.created
-            metadata = session.metadata or {}
+            payment_status = session.payment_status or 'unknown'
+
+            # session.metadata is a StripeObject in newer sdk versions – avoid calling
+            # .get() on it directly as StripeObject may not support dict-style .get().
+            metadata_order_id = ''
+            metadata_user_id = ''
+            if session.metadata:
+                try:
+                    metadata_order_id = session.metadata['order_id'] or ''
+                except (KeyError, TypeError, AttributeError):
+                    pass
+                try:
+                    metadata_user_id = session.metadata['user_id'] or ''
+                except (KeyError, TypeError, AttributeError):
+                    pass
+
+            # Try to get user_id from local payment request_payload first, then metadata
+            user_id = ''
+            if local_payment:
+                try:
+                    payload = local_payment.request_payload or {}
+                    user_id = str(payload.get('user_id') or '')
+                except (TypeError, AttributeError):
+                    pass
+            if not user_id:
+                user_id = metadata_user_id
+
+            # Try to get email from Stripe session first, then from local payment request payload
+            customer_email = session.customer_email or ''
+            if not customer_email and local_payment:
+                try:
+                    payload = local_payment.request_payload or {}
+                    customer_email = payload.get('customer_email') or ''
+                except (TypeError, AttributeError):
+                    pass
+
+            # payment_intent may be either an id string or an expanded PaymentIntent.
+            payment_intent_val = session.payment_intent
+            payment_intent_str = (
+                str(payment_intent_val)
+                if payment_intent_val and not isinstance(payment_intent_val, str)
+                else (payment_intent_val or '')
+            )
+
+            stripe_refunded = False
+            latest_charge = None
+            if payment_intent_val and not isinstance(payment_intent_val, str):
+                latest_charge = getattr(payment_intent_val, 'latest_charge', None)
+            if latest_charge:
+                amount_refunded = 0
+                refunded_flag = False
+                try:
+                    amount_refunded = int(latest_charge['amount_refunded'] or 0)
+                except (KeyError, TypeError, ValueError, AttributeError):
+                    pass
+                try:
+                    refunded_flag = bool(latest_charge['refunded'])
+                except (KeyError, TypeError, AttributeError):
+                    pass
+                stripe_refunded = refunded_flag or amount_refunded > 0
+
+            if stripe_refunded:
+                display_status = 'REFUNDED'
+                if local_payment and local_payment.status != 'REFUNDED':
+                    local_payment.status = 'REFUNDED'
+                    local_payment.save(update_fields=['status', 'updated_at'])
+            else:
+                display_status = 'REFUNDED' if local_payment and local_payment.status == 'REFUNDED' else payment_status
 
             transactions.append(
                 {
                     'session_id': session_id,
-                    'order_id': (local_payment.order_id if local_payment else '') or metadata.get('order_id') or '',
-                    'customer_email': session.customer_email or '',
+                    'order_id': (local_payment.order_id if local_payment else '') or metadata_order_id or '',
+                    'user_id': user_id,
+                    'customer_email': customer_email,
                     'amount_total': _format_amount(amount_total),
                     'currency': (session.currency or '').upper(),
-                    'payment_status': session.payment_status or 'unknown',
+                    'payment_status': payment_status,
+                    'display_status': display_status,
                     'status': local_payment.status if local_payment else '',
                     'created_at': _format_unix(created_unix),
-                    'payment_intent': session.payment_intent or '',
-                    'url': session.url or '',
+                    'payment_intent': payment_intent_str,
+                    'url': str(session.url or ''),
                 }
             )
 
@@ -112,6 +187,276 @@ def list_transactions(request):
     except stripe.error.StripeError as exc:
         return JsonResponse({'error': f'Stripe error: {exc}'}, status=400)
     except Exception as exc:
+        logger.exception('Unexpected error in list_transactions')
+        return JsonResponse({'error': f'Unexpected error: {type(exc).__name__}: {exc}'}, status=500)
+
+
+def list_unsettled_payments(request):
+    """Return successful local Payment records that have not yet been included in a settlement."""
+    if request.method != 'GET':
+        return HttpResponseNotAllowed(['GET'])
+    payments = Payment.objects.filter(status='SUCCESS', settled=False)
+    return JsonResponse({'payments': [
+        {
+            'payment_id': p.id,
+            'order_id': p.order_id,
+            'amount': str(p.amount),
+            'currency': p.currency,
+            'stripe_session_id': p.stripe_session_id or '',
+            'created_at': p.created_at.isoformat(),
+        }
+        for p in payments
+    ]})
+
+
+@csrf_exempt
+def run_settlement(request):
+    """Receive compiled per-producer settlement data, record it and attempt Stripe transfers."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    payment_ids = body.get('payment_ids') or []
+    producers_data = body.get('producers') or []
+
+    if not producers_data:
+        return JsonResponse({'error': 'No producers provided'}, status=400)
+
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())  # Monday of current week
+    total_amount = sum(Decimal(str(p.get('amount', '0') or '0')) for p in producers_data)
+
+    settlement = WeeklySettlement.objects.create(
+        week_start=week_start,
+        week_end=today,
+        total_amount=total_amount,
+        status='PENDING',
+    )
+
+    producer_records = []
+    for p in producers_data:
+        amount = Decimal(str(p.get('amount', '0') or '0'))
+        stripe_account_id = (p.get('stripe_account_id') or '').strip()
+        transfer_id = ''
+        status = 'PENDING'
+        error_message = ''
+
+        if not stripe_account_id:
+            status = 'SKIPPED'
+            error_message = 'No Stripe connected account ID set for this producer'
+        elif not _stripe_is_configured():
+            status = 'SKIPPED'
+            error_message = 'Stripe secret key not configured'
+        else:
+            try:
+                _require_stripe()
+                stripe.api_key = settings.STRIPE_SECRET_KEY
+                transfer = stripe.Transfer.create(
+                    amount=int(amount * 100),  # convert to pence
+                    currency='gbp',
+                    destination=stripe_account_id,
+                    description=f'BRFN weekly settlement {week_start} to {today}',
+                    metadata={
+                        'settlement_id': str(settlement.id),
+                        'producer_id': str(p.get('producer_id', '')),
+                        'producer_name': p.get('producer_name', ''),
+                    },
+                )
+                transfer_id = transfer.id
+                status = 'TRANSFERRED'
+            except Exception as exc:
+                error_message = str(exc)
+                status = 'FAILED'
+
+        ps = ProducerSettlement.objects.create(
+            settlement=settlement,
+            producer_id=str(p.get('producer_id', '')),
+            producer_name=p.get('producer_name', ''),
+            stripe_account_id=stripe_account_id,
+            amount=amount,
+            transfer_id=transfer_id,
+            status=status,
+            error_message=error_message,
+        )
+        producer_records.append(ps)
+
+    # Mark payments as settled
+    if payment_ids:
+        Payment.objects.filter(pk__in=payment_ids).update(settled=True)
+
+    # Update overall settlement status
+    statuses = {ps.status for ps in producer_records}
+    if all(s in ('TRANSFERRED', 'SKIPPED') for s in statuses):
+        settlement.status = 'COMPLETED'
+    elif any(s == 'FAILED' for s in statuses):
+        settlement.status = 'FAILED'
+    else:
+        settlement.status = 'COMPLETED'
+    settlement.save(update_fields=['status'])
+
+    return JsonResponse({
+        'settlement_id': settlement.id,
+        'status': settlement.status,
+        'total_amount': str(settlement.total_amount),
+        'producer_count': len(producer_records),
+        'producers': [
+            {
+                'producer_id': ps.producer_id,
+                'producer_name': ps.producer_name,
+                'amount': str(ps.amount),
+                'status': ps.status,
+                'transfer_id': ps.transfer_id,
+                'error_message': ps.error_message,
+            }
+            for ps in producer_records
+        ],
+    })
+
+
+def list_settlements(request):
+    """List all recorded weekly settlements."""
+    if request.method != 'GET':
+        return HttpResponseNotAllowed(['GET'])
+
+    settlements = (
+        WeeklySettlement.objects
+        .prefetch_related('producer_settlements')
+        .order_by('-created_at')
+    )
+    return JsonResponse({'settlements': [
+        {
+            'id': s.id,
+            'week_start': str(s.week_start),
+            'week_end': str(s.week_end),
+            'total_amount': str(s.total_amount),
+            'status': s.status,
+            'created_at': s.created_at.isoformat(),
+            'producers': [
+                {
+                    'producer_id': ps.producer_id,
+                    'producer_name': ps.producer_name,
+                    'amount': str(ps.amount),
+                    'status': ps.status,
+                    'transfer_id': ps.transfer_id,
+                    'error_message': ps.error_message,
+                }
+                for ps in s.producer_settlements.all()
+            ],
+        }
+        for s in settlements
+    ]})
+
+
+@csrf_exempt
+def update_payment_order_reference(request):
+    """Update a successful payment record to point at the final customer order id."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    final_order_id = str(body.get('order_id') or '').strip()
+    payment_id = str(body.get('payment_id') or '').strip()
+    session_id = str(body.get('session_id') or '').strip()
+
+    if not final_order_id:
+        return JsonResponse({'error': 'order_id is required'}, status=400)
+    if not payment_id and not session_id:
+        return JsonResponse({'error': 'payment_id or session_id is required'}, status=400)
+
+    queryset = Payment.objects.all()
+    if payment_id:
+        queryset = queryset.filter(pk=payment_id)
+    if session_id:
+        queryset = queryset.filter(stripe_session_id=session_id)
+
+    payment = queryset.first()
+    if not payment:
+        return JsonResponse({'error': 'Payment not found'}, status=404)
+
+    payment.order_id = final_order_id
+    payment.save(update_fields=['order_id', 'updated_at'])
+    return JsonResponse({
+        'updated': True,
+        'payment_id': payment.id,
+        'order_id': payment.order_id,
+    })
+
+
+@csrf_exempt
+def refund_by_order(request):
+    """Issue a Stripe refund for the payment tied to a given order_id.
+
+    POST /payments/api/refund/
+    Body: {"order_id": "<CustomerOrder.id>"}
+
+    The link between orders and payments:
+      - When a customer checks out, the frontend sends CustomerOrder.id as order_id
+        to the payment gateway's /payments/api/checkout/ endpoint.
+      - The gateway stores it as Payment.order_id (a string of the integer PK).
+      - So to refund, we look up Payment where order_id = str(customer_order_id)
+        and status = SUCCESS, then call stripe.Refund.create(payment_intent=...).
+    """
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    order_id = str(body.get('order_id') or '').strip()
+    payment_id = str(body.get('payment_id') or '').strip()
+    if not order_id and not payment_id:
+        return JsonResponse({'error': 'order_id or payment_id is required'}, status=400)
+
+    payment = None
+    if order_id:
+        payment = Payment.objects.filter(order_id=order_id, status='SUCCESS').first()
+    if not payment and payment_id:
+        payment = Payment.objects.filter(pk=payment_id, status='SUCCESS').first()
+    if not payment:
+        reference = order_id or payment_id
+        return JsonResponse({'error': f'No successful payment found for reference {reference}'}, status=404)
+
+    if not payment.stripe_payment_intent:
+        return JsonResponse({'error': 'Payment has no Stripe payment intent — cannot refund'}, status=400)
+
+    if not _stripe_is_configured():
+        return JsonResponse({'error': 'Stripe is not configured on this server'}, status=503)
+
+    try:
+        _require_stripe()
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        refund = stripe.Refund.create(
+            payment_intent=payment.stripe_payment_intent,
+            metadata={
+                'order_id': order_id or payment.order_id,
+                'payment_id': str(payment.id),
+                'reason': 'order_cancellation',
+            },
+        )
+        payment.status = 'REFUNDED'
+        payment.save(update_fields=['status', 'updated_at'])
+        return JsonResponse({
+            'refunded': True,
+            'refund_id': refund.id,
+            'amount': str(payment.amount),
+            'currency': payment.currency,
+        })
+    except stripe.error.InvalidRequestError as exc:
+        return JsonResponse({'error': f'Stripe error: {exc}'}, status=400)
+    except stripe.error.StripeError as exc:
+        return JsonResponse({'error': f'Stripe error: {exc}'}, status=400)
+    except Exception as exc:
+        logger.exception('Unexpected error in refund_by_order')
         return JsonResponse({'error': f'Unexpected error: {exc}'}, status=500)
 
 
@@ -331,11 +676,13 @@ def _create_checkout_session(*, request, payload):
         'metadata': {
             'payment_id': str(payment.id),
             'order_id': checkout_data['order_id'],
+            'user_id': checkout_data.get('user_id', ''),
         },
         'payment_intent_data': {
             'metadata': {
                 'payment_id': str(payment.id),
                 'order_id': checkout_data['order_id'],
+                'user_id': checkout_data.get('user_id', ''),
             }
         },
         'success_url': checkout_data['success_url'] or _default_success_url(request, payment.id),
@@ -359,6 +706,7 @@ def _build_checkout_data(payload):
     order_id = str(payload.get('order_id') or order.get('order_id') or order.get('id') or '')
     currency = str(payload.get('currency') or order.get('currency') or settings.STRIPE_CURRENCY).lower()
     customer_email = payload.get('customer_email') or order.get('customer_email') or order.get('email')
+    user_id = str(payload.get('user_id') or order.get('user_id') or '')
 
     if items:
         line_items, amount = _build_line_items(items=items, currency=currency, order_id=order_id)
@@ -385,6 +733,7 @@ def _build_checkout_data(payload):
         'amount': amount,
         'currency': currency,
         'customer_email': customer_email,
+        'user_id': user_id,
         'line_items': line_items,
         'order_id': order_id,
         'success_url': payload.get('success_url'),
@@ -495,7 +844,7 @@ def _default_cancel_url(request, payment_id):
 
 
 def _frontend_success_redirect_url(*, payment):
-    frontend_base = (settings.FRONTEND_URL or 'http://localhost:8000').rstrip('/')
+    frontend_base = _resolve_frontend_base_url(payment=payment)
     query = {
         'payment': 'success',
         'payment_id': payment.id,
@@ -509,7 +858,7 @@ def _frontend_success_redirect_url(*, payment):
 
 
 def _frontend_cancel_redirect_url(*, payment=None):
-    frontend_base = (settings.FRONTEND_URL or 'http://localhost:8000').rstrip('/')
+    frontend_base = _resolve_frontend_base_url(payment=payment)
     query = {
         'payment': 'cancelled',
         'error': 'Payment was cancelled. Your basket has not been placed.',
@@ -536,6 +885,19 @@ def _coerce_limit(value):
     if parsed < 1:
         return default_limit
     return min(parsed, max_limit)
+
+
+def _resolve_frontend_base_url(*, payment=None):
+    if payment:
+        try:
+            payload = payment.request_payload or {}
+            frontend_from_payload = str(payload.get('frontend_base_url') or '').rstrip('/')
+            if frontend_from_payload:
+                return frontend_from_payload
+        except (TypeError, AttributeError):
+            pass
+
+    return (settings.FRONTEND_URL or 'http://localhost:8000').rstrip('/')
 
 
 def _format_amount(value):

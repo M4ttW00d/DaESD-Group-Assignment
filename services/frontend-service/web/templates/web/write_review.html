@@ -1,0 +1,100 @@
+{% extends "web/base.html" %}
+
+{% block extra_styles %}
+.btn-primary {
+    background: var(--terra);
+    color: #fff;
+    border: none;
+    padding: 0.85rem 2.25rem;
+    border-radius: 8px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary:hover {
+    background: var(--terra-light);
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--green);
+    border: 2px solid var(--green);
+    padding: 0.8rem 2rem;
+    border-radius: 8px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-secondary:hover {
+    background: var(--green);
+    color: #fff;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 600px; margin-top: 3rem;">
+    <h1 style="font-family: 'Cormorant Garamond', serif; font-size: 2.5rem; font-weight: 700; margin-bottom: 2rem; text-align: center; color: var(--green);">Write a Review</h1>
+    
+    <div style="display: flex; gap: 1.5rem; align-items: center; margin-bottom: 2.5rem; padding: 1.5rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);">
+        {% if product.image %}
+        <img src="{{ media_base_url }}/media/{{ product.image }}" alt="{{ product.name }}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;">
+        {% endif %}
+        <div>
+            <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem;">{{ product.name }}</h2>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">From <strong>{{ product.producer_profile.business_name|default:product.producer_username }}</strong></p>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="error-banner">
+        ⚠ {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'write_review' product_id=product.id %}" style="background: var(--card-bg); padding: 2.5rem; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border);">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 1.75rem;">
+            <label for="rating" style="display: block; font-weight: 600; margin-bottom: 0.6rem; color: var(--text);">Rate this product *</label>
+            <select name="rating" id="rating" required style="width: 100%; padding: 0.85rem; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Source Sans 3', sans-serif; font-size: 1rem; background-color: #fff; cursor: pointer;">
+                <option value="5">⭐⭐⭐⭐⭐ Excellent (5/5)</option>
+                <option value="4">⭐⭐⭐⭐ Good (4/5)</option>
+                <option value="3">⭐⭐⭐ Average (3/5)</option>
+                <option value="2">⭐⭐ Fair (2/5)</option>
+                <option value="1">⭐ Poor (1/5)</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom: 1.75rem;">
+            <label for="title" style="display: block; font-weight: 600; margin-bottom: 0.6rem; color: var(--text);">Review Title</label>
+            <input type="text" name="title" id="title" placeholder="e.g., I like these carrots!" style="width: 100%; padding: 0.85rem; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Source Sans 3', sans-serif; font-size: 1rem;">
+        </div>
+
+        <div style="margin-bottom: 1.75rem;">
+            <label for="comment" style="display: block; font-weight: 600; margin-bottom: 0.6rem; color: var(--text);">Review Details *</label>
+            <textarea name="comment" id="comment" rows="5" required placeholder="What did you like or dislike?" style="width: 100%; padding: 0.85rem; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Source Sans 3', sans-serif; font-size: 1rem; line-height: 1.6;"></textarea>
+        </div>
+
+        <div style="margin-bottom: 2.25rem; display: flex; align-items: center; gap: 0.75rem;">
+            <input type="checkbox" name="is_anonymous" id="is_anonymous" value="true" style="width: 1.25rem; height: 1.25rem; accent-color: var(--green); cursor: pointer;">
+            <label for="is_anonymous" style="font-weight: 500; cursor: pointer; color: var(--text-muted); font-size: 0.95rem;">Post anonymously</label>
+        </div>
+
+        <div style="display: flex; gap: 1.25rem;">
+            <button type="submit" class="btn-primary" style="flex: 1;">Submit Review</button>
+            <a href="{% url 'customer-orders' %}" class="btn-secondary" style="flex: 1; text-align: center;">Cancel</a>
+        </div>
+    </form>
+    <div style="height: 4rem;"></div>
+</div>
+{% endblock %}

@@ -1,21 +1,37 @@
-from rest_framework import generics, permissions, filters
+import os
+import requests as http_requests
+
+from rest_framework import generics, permissions, filters, status
+from rest_framework.response import Response
+from django.db.models import Q, F
+from django.db.models.deletion import ProtectedError
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Product, Category, Recipe, FarmStory
 from .serializers import ProductSerializer, CategorySerializer, RecipeSerializer, FarmStorySerializer
 
+NOTIFICATIONS_API_URL = os.environ.get('NOTIFICATIONS_API_URL', 'http://notifications-api:8001')
+SERVICE_SECRET_KEY    = os.environ.get('NOTIFICATIONS_API_SECRET_KEY') or os.environ.get('JWT_SECRET_KEY', 'change-this-secret')
+
 class IsProducerOrReadOnly(permissions.BasePermission):
     """
     Custom permission to only allow Producers to edit or create products.
+    Admins can delete any product.
     """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user.is_authenticated and request.user.role == 'PRODUCER'
+        if not request.user.is_authenticated:
+            return False
+        return request.user.role in ('PRODUCER', 'ADMIN')
 
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        # Only the producer who created the product can edit/delete it
+        # Admins can edit or delete any product
+        if request.user.role == 'ADMIN':
+            return True
+        # Producers can only edit/delete their own products
         return obj.producer == request.user
 
 class CategoryList(generics.ListCreateAPIView):
@@ -39,6 +55,13 @@ class ProductListCreateView(generics.ListCreateAPIView):
             for allergen in exclude_allergens:
                 # Exclude products whose allergens JSON list contains this allergen
                 queryset = queryset.exclude(allergens__contains=allergen)
+                
+        user = self.request.user
+        
+        # We no longer filter out-of-season products at the database level.
+        # They should be visible on the frontend but marked as 'Out of Season'
+        # and unpurchasable.
+            
         return queryset
 
     def perform_create(self, serializer):
@@ -48,6 +71,126 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsProducerOrReadOnly]
+
+    def perform_update(self, serializer):
+        from orders.models import SurplusDeal, Order
+
+        product = self.get_object()
+
+        was_surplus = SurplusDeal.objects.filter(
+            product=product, expiry_date__gt=timezone.now()
+        ).exists()
+
+        updated_product = serializer.save()
+
+        now_surplus = SurplusDeal.objects.filter(
+            product=updated_product, expiry_date__gt=timezone.now()
+        ).exists()
+
+        if now_surplus and not was_surplus:
+            deal = (
+                SurplusDeal.objects
+                .filter(product=updated_product, expiry_date__gt=timezone.now())
+                .order_by('-id')
+                .first()
+            )
+            discount = deal.discount_percentage if deal else ''
+
+            prior_customer_ids = set(
+                Order.objects
+                .filter(producer=updated_product.producer)
+                .values_list('customer_id', flat=True)
+                .distinct()
+            )
+
+            from users.models import FavouriteProducer
+            favouriter_ids = set(
+                FavouriteProducer.objects
+                .filter(producer=updated_product.producer)
+                .values_list('customer_id', flat=True)
+                .distinct()
+            )
+
+            all_customer_ids = prior_customer_ids | favouriter_ids
+
+            from users.models import User as UserModel
+            customer_email_map = {
+                u['id']: u['email']
+                for u in UserModel.objects.filter(id__in=all_customer_ids).values('id', 'email')
+            }
+
+            for customer_id in all_customer_ids:
+                try:
+                    http_requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                        json={
+                            'user':    customer_id,
+                            'email':   customer_email_map.get(customer_id, ''),
+                            'message': (
+                                f"Surplus deal: '{updated_product.name}' is now {discount}% off. "
+                                "Limited time offer — grab it before it's gone!"
+                            ),
+                            'type':  'SURPLUS_DEAL',
+                            'title': f"Surplus Deal: {updated_product.name}",
+                        },
+                        headers={'X-Service-Secret': SERVICE_SECRET_KEY},
+                        timeout=5
+                    )
+                except Exception:
+                    pass
+
+        if updated_product.seasonal_start_month:
+            now = timezone.now()
+            next_month = now.month % 12 + 1
+            current_year = now.year
+
+            already_sent = (
+                updated_product.seasonal_reminder_sent_month == next_month
+                and updated_product.seasonal_reminder_sent_year == current_year
+            )
+
+            if updated_product.seasonal_start_month == next_month and not already_sent:
+                months = {
+                    1: 'January', 2: 'February', 3: 'March', 4: 'April',
+                    5: 'May', 6: 'June', 7: 'July', 8: 'August',
+                    9: 'September', 10: 'October', 11: 'November', 12: 'December',
+                }
+                try:
+                    http_requests.post(
+                        f"{NOTIFICATIONS_API_URL}/api/notifications/",
+                        json={
+                            'user':    updated_product.producer.id,
+                            'email':   updated_product.producer.email,
+                            'type':    'SEASONAL_REMINDER',
+                            'title':   f"Season Starting: {updated_product.name}",
+                            'message': (
+                                f"Your product '{updated_product.name}' comes into season in "
+                                f"{months[next_month]}. Make sure your stock is ready for customers!"
+                            ),
+                        },
+                        headers={'X-Service-Secret': SERVICE_SECRET_KEY},
+                        timeout=5,
+                    )
+                    Product.objects.filter(pk=updated_product.pk).update(
+                        seasonal_reminder_sent_month=next_month,
+                        seasonal_reminder_sent_year=current_year,
+                    )
+                except Exception:
+                    pass
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ProtectedError:
+            # Product has order history — mark as unavailable instead of deleting
+            instance.is_available = False
+            instance.save()
+            return Response(
+                {'detail': 'Product has existing orders and cannot be deleted. It has been marked as unavailable instead.'},
+                status=status.HTTP_200_OK
+            )
 
 class CategoryDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Category.objects.all()
