@@ -1,6 +1,6 @@
 # Sprint 3 Backlog
 **Duration:** Weeks 11-13 of Term 2  
-**Status:** In Progress  
+**Status:** Completed    
 **Goals:** Finish all remaining low-priority test cases and add extra production qualities to the system that further address non-functional requirements.
 
 ### Sprint 3 Highlevel Objectives
@@ -50,21 +50,21 @@
 ## Week 2: Full Integration
 
 #### Assigned To: Matt Wood
-- [] Add registration for community group representative users (note: should be checked later).
-- [] Apply discounts to bulk orders as well, based on the order quantity and to be reflected both in the basket subtotal and the checkout/order summary pages.
-- [] Integrate discounts and payment receipts to the customer's order history as needed, as well as the overall order status.
+- [x] Apply discounts to bulk orders as well, based on the order quantity and to be reflected both in the basket subtotal and the checkout/order summary pages.
+- [x] Integrate discounts and payment receipts to the customer's order history as needed, as well as the overall order status.
 
 #### Assigned to: Amine Ziani
-- [] Ensure bulk orders payment still works with current mock payment gateway integration and payments are split by producer.
+- [x] Ensure bulk orders payment still works with current mock payment gateway integration and payments are split by producer.
 
 #### Assigned To: Dina Metwalli
+- [x] Add registration for community group representative users (note: should be checked later).
 - [x] Add a warning to show customers on reordering orders from history in case any of the order's items are unavailable as of current time.
     - This should clearly specify which item(s) is currently unavailable.
     - If they customer would still like to proceed, it will take the same process of going to the basket page.
     - Proceeding to checkout should function the same.
-- [] Add special checkout process for community group representative users (by including a special instructions section for producers to view).
-    - [] Test bulk orders by community group users still function as expected and system allows bulk ordering.
-    - [] Add field in UI for producer order to see special instructions added by community group representative during order placement.
+- [x] Add special checkout process for community group representative users (by including a special instructions section for producers to view).
+    - [x] Test bulk orders by community group users still function as expected and system allows bulk ordering.
+    - [x] Add field in UI for producer order to see special instructions added by community group representative during order placement.
 
 #### Assigned To: Leon Stansfield
 - [x] Fix and test image loading functionality for adding products.
@@ -79,7 +79,7 @@
 ## Week 3: Final Cleanup
 
 #### Assigned To: All Members
-- [] Test all integrated functionalities on the same system and using multiple users.
+- [x] Test all integrated functionalities on the same system and using multiple users.
     - Ensure all test cases are met.
     - Ensure production-level quality is considered against all functionalities.
     - **Check against functional and non-functional requirements list.**
@@ -100,8 +100,7 @@
 - [x] Add extra notifications functionalities (e.g. the ability for users to choose email notification preferences, or notifications on farm stories additon, or an emergency recall procedure in case any contaminated products have been delivered to customers).
 
 #### Assigned To: Dina Metwalli
-- [] Add soft updates for product availability once a customer places products in their basket and test using two users.
-- [] Update actual product availability/stock once customer places order.
+- [x] Update actual product availability/stock once customer places order.
 - [x] Add functionality to modify established recurring order templates and test that it only updates the next order placed, not the source order.
 
 
