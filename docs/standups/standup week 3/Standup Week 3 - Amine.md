@@ -8,7 +8,7 @@
 - Improved transaction recording so payment events are stored and traceable in the database
 
 ## In Progress
-- Building and polishing the transactions page for admin visibility and debugging
+- Building  the transactions page for admin visibility and debugging
 
 
 ## Planned for Next Week

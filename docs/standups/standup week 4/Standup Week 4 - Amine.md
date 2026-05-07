@@ -1,13 +1,12 @@
-# Standup Week 3 - Amine
+# Standup Week 4 - Amine
 **Date:** 10/03/2026
 **Sprint:** [Sprint 3]
 
 ## Completed This Week
-- Fixed Stripe page redirection issues between checkout, success, and cancel routes
 - Resolved checkout clearance errors after successful payment completion
 - Added Transactions tab in admin dashboard for payment tracking
 
-## In Progress
+## In Progress#
 - Payment settlement workflow (weekly payout compilation and transfer handling)
 
 ## Blockers 
