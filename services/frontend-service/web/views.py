@@ -498,8 +498,8 @@ def product_detail(request, product_id):
             if resp_rec.status_code == 200:
                 recipes = resp_rec.json()
 
-            # Calculate food miles if customer is logged in
-            if request.session.get('token') and request.session.get('role') == 'CUSTOMER':
+            # Calculate food miles if customer or community group representative is logged in
+            if request.session.get('token') and request.session.get('role') in ('CUSTOMER', 'COMMUNITY-GROUP-REPRESENTATIVE'):
                 try:
                     user_resp = requests.get(
                         f"{PLATFORM_API_URL}/api/auth/me/",
@@ -508,7 +508,10 @@ def product_detail(request, product_id):
                     )
                     if user_resp.status_code == 200:
                         user_data = user_resp.json()
-                        customer_postcode = (user_data.get('customer_profile') or {}).get('postcode')
+                        customer_postcode = (
+                            (user_data.get('customer_profile') or {}).get('postcode')
+                            or (user_data.get('community_profile') or {}).get('postcode')
+                        )
                         producer_postcode = (product.get('producer_profile') or {}).get('postcode')
                         if customer_postcode and producer_postcode:
                             food_miles = _calculate_food_miles(customer_postcode, producer_postcode)
