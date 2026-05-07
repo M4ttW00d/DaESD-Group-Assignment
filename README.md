@@ -1,6 +1,6 @@
 # Bristol Regional Food Network
 
-A distributed multi-vendor marketplace connecting Bristol-area food producers with customers, community group representatives, and admins. Built as a microservices system for the Distributed Software & Engineering for Distributed Systems module.
+A distributed multi-vendor marketplace connecting Bristol-area food producers with customers, community group representatives, and admins. Built as a microservices system for the Distributed and Enterprise Software Engineering module.
 
 🌐 **Live site:** [brfn.co.uk](https://brfn.co.uk) (Online until **1/6/2025**, unless a delayed termination date is agreed)
 
@@ -63,9 +63,13 @@ cp .env.example .env
 
 # 3. Build and start everything
 docker compose up --build
+
+# 4. Run migrations for notifications and payment-gateway services.
+docker compose exec notifications-api python manage.py migrate
+docker compose exec payment-gateway python manage.py migrate
 ```
 
-That's it. Migrations run automatically on the platform-api container's first boot (controlled by `RUN_MIGRATIONS=true`). You should now have:
+Migrations run automatically for the platform-api container's first boot (controlled by `RUN_MIGRATIONS=true`). You should now have:
 
 - Frontend: <http://localhost:8000>
 - Notifications API: <http://localhost:8001>
