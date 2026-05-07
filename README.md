@@ -1,6 +1,6 @@
 # Bristol Regional Food Network
 
-A distributed multi-vendor marketplace connecting Bristol-area food producers with customers, community group representatives, and admins. Built as a microservices system for the Distributed and Enterprise Software Engineering module.
+A distributed multi-vendor marketplace connecting Bristol-area food producers with customers, community group representatives, and admins. Built as a microservices system for the Distributed and Enterprise Software Development module.
 
 🌐 **Live site:** [brfn.co.uk](https://brfn.co.uk) (Online until **1/6/2025**, unless a delayed termination date is agreed)
 
