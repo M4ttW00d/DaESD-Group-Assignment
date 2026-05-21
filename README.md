@@ -1,3 +1,6 @@
+> ⚠️ **Project Status: Completed**  
+> This repository contains the final code for a project submission by **Group 1** for the **Distributed and Enterprise Software Development** module assignment, part of the Computer Science program at **UWE**. It is now concluded and is no longer being actively maintained or updated.
+
 # Bristol Regional Food Network
 
 A distributed multi-vendor marketplace connecting Bristol-area food producers with customers, community group representatives, and admins. Built as a microservices system for the Distributed and Enterprise Software Development module.
